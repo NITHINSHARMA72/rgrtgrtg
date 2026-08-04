@@ -1,0 +1,5 @@
+pytelegrambotapi
+requests
+gtts
+pydub
+SpeechRecognition
