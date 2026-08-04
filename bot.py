@@ -12,7 +12,7 @@ import speech_recognition as sr
 # --- CONFIGURATION (YAHAN SE EDIT KAREIN) ---
 # ==========================================
 BOT_TOKEN = "8914661287:AAFn6cuJBHrpIZZm7y3_3YbtdrEqU8tq6gc"
-GEMINI_API_KEY = "AIzaSyBaCvDpAwckHs48L-oeNI1nXGLQ5_KG3Vk"
+GROQ_API_KEY = "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"
 
 # Apna Telegram Numeric User ID yahan daalein (Admin ke liye)
 ADMIN_ID = 987654321  # <-- Apna Admin User ID yahan update karein
@@ -21,7 +21,8 @@ ADMIN_ID = 987654321  # <-- Apna Admin User ID yahan update karein
 CHANNEL_ID = -1004358883410
 CHANNEL_URL = "https://t.me/+ovbQggX8Ikg3MTY1"
 
-MODEL_NAME = "gemini-2.5-flash"
+# Groq High-Speed Model
+MODEL_NAME = "llama-3.3-70b-versatile"
 
 # --- LOGGING SETUP ---
 logging.basicConfig(
@@ -191,16 +192,9 @@ def send_channel_join_prompt(chat_id):
 
 
 # ==========================================
-# --- ADVANCED GEMINI AI CORE ---
+# --- ADVANCED GROQ AI CORE ---
 # ==========================================
 def generate_ai_response(message_list, user_name, user_prefs):
-  formatted_contents = []
-  for msg in message_list:
-    role = "user" if msg["role"] == "user" else "model"
-    formatted_contents.append(
-        {"role": role, "parts": [{"text": msg["content"]}]}
-    )
-
   system_prompt = (
       f"You are an ultra-smart, ultra-friendly, and engaging AI assistant on Telegram. "
       f"The user's real name is '{user_name}'. Address them warmly by name when appropriate. "
@@ -212,23 +206,34 @@ def generate_ai_response(message_list, user_name, user_prefs):
       "- Keep strong contextual memory of past chat turns."
   )
 
-  url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={GEMINI_API_KEY}"
+  messages = [{"role": "system", "content": system_prompt}]
+  for msg in message_list:
+    role = "user" if msg["role"] == "user" else "assistant"
+    messages.append({"role": role, "content": msg["content"]})
+
+  url = "https://api.groq.com/openai/v1/chat/completions"
   payload = {
-      "systemInstruction": {"parts": [{"text": system_prompt}]},
-      "contents": formatted_contents,
-      "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.8},
+      "model": MODEL_NAME,
+      "messages": messages,
+      "temperature": 0.8,
+      "max_tokens": 1024,
   }
-  headers = {"Content-Type": "application/json"}
+  headers = {
+      "Authorization": f"Bearer {GROQ_API_KEY}",
+      "Content-Type": "application/json",
+  }
 
   try:
     res = requests.post(url, headers=headers, json=payload, timeout=25)
     if res.status_code == 200:
       data = res.json()
-      if "candidates" in data:
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    logger.warning(f"Gemini API error status: {res.status_code}")
+      if "choices" in data:
+        return data["choices"][0]["message"]["content"].strip()
+    logger.warning(
+        f"Groq API error status: {res.status_code}, response: {res.text}"
+    )
   except Exception as e:
-    logger.error(f"Gemini API exception: {e}")
+    logger.error(f"Groq API exception: {e}")
 
   return (
       "😅 Arre yaar, abhi thoda network issue ya high traffic chal raha hai."
@@ -263,6 +268,7 @@ def cmd_start(message):
     welcome_text = (
         f"👋 Hey **{name}**! Welcome back to your advanced AI companion.\n\n"
         "✨ **Features Enabled:**\n"
+        "🔹 Powered by Groq Llama 3.3\n"
         "🔹 Strong Memory & Context\n"
         "🔹 Friendly, Highlighted & Tagged Chat\n"
         "🔹 Voice & Text Support\n\n"
@@ -473,7 +479,7 @@ def handle_text(message):
 # --- MAIN LOOP ---
 # ==========================================
 if __name__ == "__main__":
-  logger.info("🚀 Starting Advanced Gemini Telegram Bot with Single Channel...")
+  logger.info("🚀 Starting Advanced Groq Telegram Bot...")
   while True:
     try:
       bot.polling(none_stop=True, interval=0, timeout=30)
