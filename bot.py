@@ -3,6 +3,8 @@ import os
 import sqlite3
 import random
 import time
+from threading import Thread
+from flask import Flask
 import telebot
 from gtts import gTTS
 from pydub import AudioSegment
@@ -33,6 +35,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
+
+# ==========================================
+# --- KEEP-ALIVE SERVER FOR RENDER (WEB SERVICE) ---
+# ==========================================
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "🤖 Bot is active and running 24/7!"
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run_web_server)
+    t.daemon = True
+    t.start()
 
 
 # ==========================================
@@ -444,6 +464,7 @@ def handle_voice(message):
 
 
 @bot.message_handler(func=lambda message: True)
+def handle_text(message.text if hasattr(message, 'text') else '')
 def handle_text(message):
     user_id = message.chat.id
     user = message.from_user
@@ -472,14 +493,17 @@ def handle_text(message):
 
 
 # ==========================================
-# --- MAIN LOOP WITH EXPONENTIAL BACKOFF ---
+# --- MAIN LOOP WITH AUTO-BACKOFF & KEEP-ALIVE ---
 # ==========================================
 if __name__ == "__main__":
+    logger.info("🚀 Starting Flask Keep-Alive Server...")
+    keep_alive()  # Background thread jo Render ko active rakhega
+
     logger.info("🚀 Starting Advanced Groq Telegram Bot...")
     
-    # Clean webhook state to prevent conflicts
+    # Safely clear webhook without arguments causing crash
     try:
-        bot.remove_webhook(drop_pending_updates=True)
+        bot.remove_webhook()
         logger.info("🧹 Existing Webhooks cleared successfully.")
     except Exception as e:
         logger.warning(f"Could not remove webhook: {e}")
@@ -491,7 +515,7 @@ if __name__ == "__main__":
         try:
             logger.info("🔄 Bot polling started...")
             bot.polling(none_stop=True, interval=0, timeout=30, long_polling_timeout=30)
-            backoff = 1  # Reset backoff if polling exits cleanly
+            backoff = 1  # Reset backoff on clean exit
         except Exception as e:
             sleep_time = backoff + random.uniform(0, 1)
             logger.error(f"Polling exception: {e}. Reconnecting in {sleep_time:.2f} seconds...")
