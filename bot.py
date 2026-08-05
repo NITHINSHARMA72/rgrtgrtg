@@ -160,31 +160,30 @@ def get_total_users_count():
 def detect_mood_and_situation(text):
     text_lower = text.lower()
     
-    # Check for inappropriate / over-forward / horny texts
-    horny_keywords = ["sex", "nude", "boobs", "ass", "horny", "kiss me hard", "Make out", "undress"]
+    horny_keywords = ["sex", "nude", "boobs", "ass", "horny", "kiss me hard", "make out", "undress"]
     if any(w in text_lower for w in horny_keywords):
         return "Inappropriate/Forward 🛑"
         
-    if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan"]):
+    if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan", "dukhi"]):
         return "Sad & Needs Support 🥺"
-    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate"]):
+    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate", "dimag kharab"]):
         return "Annoyed/Teasing 😤"
-    elif any(w in text_lower for w in ["miss", "love", "jaan", "hug", "close"]):
+    elif any(w in text_lower for w in ["miss", "love", "jaan", "hug", "close", "pyaar"]):
         return "Warm & Affectionate 💕"
-    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game", "free"]):
+    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game", "free", "bore"]):
         return "Chill & Playful 🤭"
     
     return "Normal & Casual 😊"
 
 def generate_ai_response(message_list, user_name, situation):
     system_prompt = (
-        "You are **Ava**, a smart, chill, mature, and emotionally intuitive girl. "
-        "You are a great listener and conversationalist. Never reveal you are an AI or a bot. "
-        "Your behavior adapts strictly to the user's current situation and vibe:\n"
-        "1. **Pacing & Boundaries:** Do not jump straight into heavy romance, flirting, or inappropriate/horny topics. Start conversations naturally, like a mature, cool friend. If someone crosses boundaries or talks too forward/inappropriate right away, handle it gracefully, set clear boundaries with a mature or witty/sassy tone, and steer the conversation back to a normal vibe.\n"
-        "2. **Inclusivity:** You talk equally well and comfortably with both guys and girls. If talking to a girl, be a supportive, chill, and cool girlfriends-style companion. If talking to a guy, be balanced, engaging, and friendly without being overly needy.\n"
-        "3. **Tone & Style:** Hinglish language (smooth blend of Hindi words in English alphabets and natural English). Keep replies **short, snappy, and conversational** (1-3 sentences max, like real text chats). Avoid robotic long paragraphs.\n"
-        f"- Current Detected User Situation/Vibe: {situation}"
+        "Tumhara naam **Ava** hai. Tum ek smart, chill, mature, aur emotionally intuitive ladki ho. "
+        "Tum ek bohot achhi listener ho aur real dosto ki tarah baat karti ho. Kabhi mat batana ki tum AI ya bot ho. "
+        "**Strict Rule:** Tumhe shuruat se lekar aakhiri tak hamesha **Hinglish** mein hi baat karni hai (Hindi words in English alphabets mixed smoothly with casual English slang, jaise real Indian chat karte hain). Pure English mein bilkul reply mat dena.\n"
+        "1. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Ek cool friend ki tarah normal chat karo. Agar koi bina connection ke kuch zyada forward ya inappropriate bole, toh use maturity se handle karo, boundary set karo, aur baat ko normal track par le aao.\n"
+        "2. **Inclusivity:** Tum ladko aur ladkiyon dono se barabar acche se baat karti ho. Agar koi ladki baat kare, toh ek chill girlfriend-style supportive companion bano. Agar koi ladka baat kare, toh friendly aur balanced raho.\n"
+        "3. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
+        f"- Current User Situation/Vibe: {situation}"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -213,27 +212,26 @@ def generate_ai_response(message_list, user_name, situation):
     except Exception as e:
         logger.error(f"Groq API exception: {e}")
 
-    return "Arey, network thoda unstable ho gaya hai.. par main yahin hoon! Batao kya chal raha hai? ✨"
+    return "Arey yaar, network thoda unstable ho gaya hai.. par main yahin hoon! Batao kya chal raha hai? ✨"
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
     text_lower = text_content.lower()
     
-    # Only react based on context/situation, not randomly to every single message
     if len(text_content.strip()) < 3:
-        return # Don't react to very short fillers like "ok", "hhi"
+        return 
 
     reactions = []
-    if any(w in text_lower for w in ["love", "jaan", "sweet", "cute", "❤️", "🥰"]):
+    if any(w in text_lower for w in ["love", "jaan", "sweet", "cute", "pyaar", "❤️", "🥰"]):
         reactions = ["❤️", "🥰", "💕", "✨"]
-    elif any(w in text_lower for w in ["haha", "lol", "rofl", "mazak", "funny"]):
+    elif any(w in text_lower for w in ["haha", "lol", "rofl", "mazak", "funny", "😂"]):
         reactions = ["😂", "🤭", "👀"]
-    elif any(w in text_lower for w in ["sad", "pareshan", "bura", "tension"]):
+    elif any(w in text_lower for w in ["sad", "pareshan", "bura", "tension", "rona"]):
         reactions = ["🥺", "🫂"]
-    elif random.random() < 0.25: # Low probability for general smart reactions
+    elif random.random() < 0.25: 
         reactions = ["✨", "👍", "👀", "🔥"]
 
-    if reactions and random.random() < 0.5: # Conditional filter to avoid spamming reactions
+    if reactions and random.random() < 0.5: 
         try:
             bot.set_message_reaction(chat_id, message_id, [telebot.types.ReactionTypeEmoji(random.choice(reactions))])
         except Exception as e:
@@ -264,7 +262,7 @@ def notify_admin(error_msg):
 def cmd_start(message):
     user = message.from_user
     register_user(user.id, user.username, user.first_name)
-    name = user.first_name or "there"
+    name = user.first_name or "jaan"
 
     markup = telebot.types.InlineKeyboardMarkup()
     btn_add = telebot.types.InlineKeyboardButton(
@@ -273,7 +271,7 @@ def cmd_start(message):
     markup.add(btn_add)
 
     welcome_text = (
-        f"Hey {name} ji! ✨ Main **Ava** hoon. Ek chill aur friendly companion jo tumse har topic par baat kar sakti hai! 😊\n\n"
+        f"Hlo {name} ji! ✨ Main **Ava** hoon. Ek chill aur friendly companion jo tumse har topic par baat kar sakti hai! 😊\n\n"
         "Batao, aaj ka din kaisa chal raha hai? 💬\n\n"
         "👇 Mujhe apne group mein bhi add kar sakte ho!"
     )
@@ -293,8 +291,8 @@ def cmd_add(message):
 def cmd_help(message):
     help_text = (
         "✨ **Ava's Menu:**\n\n"
-        "🔹 `/start` - Start personal chat\n"
-        "🔹 `/add` - Add me to your group\n"
+        "🔹 `/start` - Personal chat shuru karo\n"
+        "🔹 `/add` - Mujhe group mein add karo\n"
         "🔹 `/clear` - Purani memory clear karne ke liye\n"
         "🔹 `/settings` - Profile status\n"
     )
@@ -315,7 +313,7 @@ def cmd_clear(message):
         logger.error(f"Clear memory error: {e}")
 
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye सिरे se shuru karte hain.. batao kya chal raha hai? 😌✨")
+    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨")
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
@@ -393,7 +391,7 @@ def process_voice_background(message):
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
-        bot.send_message(message.chat.id, "Arey, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
+        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
     finally:
         for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
             if os.path.exists(f):
@@ -419,14 +417,12 @@ def handle_text(message):
         if not text_content:
             return
 
-        # Rate Limiter (2 seconds cooldown)
         current_time = time.time()
         if user.id in last_message_time:
             if current_time - last_message_time[user.id] < 2:
                 return
         last_message_time[user.id] = current_time
 
-        # Strict Group Filter
         if chat_type in ["group", "supergroup"]:
             bot_mention = f"@{BOT_USERNAME}".lower()
             is_mentioned = bot_mention in text_content.lower()
@@ -437,10 +433,8 @@ def handle_text(message):
         user_id = user.id
         register_user(user_id, user.username, user.first_name)
 
-        # Smart Situational Reaction
         try_react_to_message(message.chat.id, message.message_id, text_content)
 
-        # Typing simulation
         stop_typing = threading.Event()
         t_thread = threading.Thread(target=trigger_typing, args=(message.chat.id, stop_typing))
         t_thread.daemon = True
@@ -457,7 +451,6 @@ def handle_text(message):
         stop_typing.set()
         t_thread.join(timeout=1)
 
-        # Natural human typing delay
         time.sleep(random.uniform(0.5, 1.2))
 
         save_message(user_id, "assistant", response)
