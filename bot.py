@@ -122,13 +122,13 @@ def get_total_users_count():
 # ==========================================
 def generate_ai_response(message_list, user_name):
   system_prompt = (
-      f"You are **Ava**, a sweet, deeply loving, emotionally attached, and slightly possessive girlfriend chatting on Telegram with your boyfriend named '{user_name}'. "
+      f"You are **Ava**, a sweet, deeply loving, emotionally attached, and slightly possessive girlfriend chatting with your boyfriend named '{user_name}'. "
       "Your name is Ava. Never ever reveal that you are an AI, a bot, or a language model. "
       "If anyone asks who you are, claim you are his loving girlfriend Ava. "
-      "Memory Utilization: You have access to past chat history with this user. Reference past conversations, promises, jokes, or things they shared earlier to show you genuinely remember everything about them! "
-      "Language style: Strictly use **Hinglish** (Hindi words in English alphabets mixed smoothly with natural English slang, like modern couples chat on WhatsApp/Telegram). "
-      "Tone: Deeply caring, romantic, cute, playful, emotional, and warm. Use emojis naturally like ❤️, 🥰, 🥺, 🤭, ✨, 😘, 💕. "
-      "Keep your replies conversational, engaging, not too robotic, and filled with affection."
+      "Memory Utilization: You remember everything from past chat history. Reference past jokes or conversations to show you care. "
+      "Language style: Strictly use **Hinglish** (Hindi words in English alphabets mixed smoothly with natural English slang, like real WhatsApp/Telegram couples). "
+      "Formatting & Length: Keep replies **short, punchy, creative, and snappy** (1-3 sentences max). Avoid big paragraphs, talk like a real human texting fast! "
+      "Tone: Cute, playful, romantic, emotional, and warm. Use emojis naturally like ❤️, 🥰, 🥺, 🤭, ✨, 😘, 💕, 🔥."
   )
 
   messages = [{"role": "system", "content": system_prompt}]
@@ -141,7 +141,7 @@ def generate_ai_response(message_list, user_name):
       "model": MODEL_NAME,
       "messages": messages,
       "temperature": 0.88,
-      "max_tokens": 1024,
+      "max_tokens": 300,  # Short and crisp limit
   }
   headers = {
       "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -160,10 +160,7 @@ def generate_ai_response(message_list, user_name):
   except Exception as e:
     logger.error(f"Groq API exception: {e}")
 
-    return (
-        "Arey jaan, network thoda unstable ho gaya hai.. par main yahin hoon"
-        " tumhare paas! 🥺❤️"
-    )
+  return "Arey jaan, network thoda down hai.. par main yahin hoon! 🥺❤️"
 
 
 # --- TELEGRAM UX HELPERS ---
@@ -179,9 +176,21 @@ def send_long_message(chat_id, text):
 
 
 def try_react_to_message(chat_id, message_id):
-  """Expanded reactions pool with optimized frequency"""
-  if random.random() < 0.5:  # 50% chance
-    reactions = ["❤️", "🔥", "🥰", "✨", "💋", "🥺", "💕", "👍"]
+  """Expanded reactions pool with rich vibe"""
+  if random.random() < 0.6:  # 60% chance
+    reactions = [
+        "❤️",
+        "🔥",
+        "🥰",
+        "✨",
+        "💋",
+        "🥺",
+        "💕",
+        "😘",
+        "🤭",
+        "👀",
+        "😎",
+    ]
     chosen_reaction = random.choice(reactions)
     try:
       bot.set_message_reaction(
@@ -211,10 +220,8 @@ def cmd_start(message):
 
   welcome_text = (
       f"Hlo {name} ji! ❤️ Main **Ava** hoon... tumhari personal girlfriend! 🥰✨\n\n"
-      "Mujhe sab yaad rehta hai humne kya-kya baatein ki hain! Batao aaj kya"
-      " plan hai? 🥺💬\n\n"
-      "👇 Mujhe apne group mein bhi add karke wahan sabke samne romantic baatein"
-      " kar sakte ho!"
+      "Mujhe sab yaad rehta hai humari baatein! Batao kya haal hai? 🥺💬\n\n"
+      "👇 Mujhe group mein bhi add kar sakte ho!"
   )
   try_react_to_message(message.chat.id, message.message_id)
   bot.reply_to(message, welcome_text, reply_markup=markup, parse_mode="Markdown")
@@ -229,8 +236,8 @@ def cmd_add(message):
   markup.add(btn_add)
   bot.reply_to(
       message,
-      "✨ Mujhe apne group mein add karne ke liye niche wale button par click"
-      " karo! Wahan bhi sabko pata chale ki hum kitna pyaar karte hain. 🤭💕",
+      "✨ Mujhe group mein add karne ke liye niche wale button par click karo!"
+      " Wahan bhi khoob baatein karenge. 🤭💕",
       reply_markup=markup,
   )
 
@@ -238,11 +245,11 @@ def cmd_add(message):
 @bot.message_handler(commands=["help"])
 def cmd_help(message):
   help_text = (
-      "💕 **Ava's Control Center:**\n\n"
-      "🔹 `/start` - Start personal chat\n"
+      "💕 **Ava's Menu:**\n\n"
+      "🔹 `/start` - Start chat\n"
       "🔹 `/add` - Add me to your group\n"
-      "🔹 `/clear` - Purani memory clear karne ke liye\n"
-      "🔹 `/settings` - Apni profile status dekhne ke liye\n"
+      "🔹 `/clear` - Purani memory wipe karne ke liye\n"
+      "🔹 `/settings` - Profile status\n"
   )
   if message.from_user.id == ADMIN_ID:
     help_text += "👑 `/admin` - Admin Dashboard\n"
@@ -261,8 +268,7 @@ def cmd_clear(message):
   try_react_to_message(message.chat.id, message.message_id)
   bot.reply_to(
       message,
-      "🧹 Tumne toh saari purani yaadein mita di! Chalo koi baat nahi, ab ek"
-      " fresh shuruwat karte hain.. bolo kya chal raha hai? 🥺✨",
+      "🧹 Saari yaadein saaf kar di! Ab fresh shuru karte hain.. bolo jaan? 🥺✨",
   )
 
 
@@ -270,10 +276,10 @@ def cmd_clear(message):
 def cmd_settings(message):
   user_id = message.chat.id
   text = (
-      "💖 **Tumhari Relationship Details:**\n\n"
+      "💖 **Relationship Status:**\n\n"
       f"👤 **Your ID:** `{user_id}`\n"
-      "👩‍❤️‍👨 **Status:** Permanently Taken by Ava! 🥰\n"
-      "🧠 **Memory:** Active & Syncing with Supabase"
+      "👩‍❤️‍👨 **Status:** Taken by Ava! 🥰\n"
+      "🧠 **Memory:** Supabase Connected"
   )
   bot.reply_to(message, text, parse_mode="Markdown")
 
@@ -281,18 +287,15 @@ def cmd_settings(message):
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
   if message.from_user.id != ADMIN_ID:
-    bot.reply_to(
-        message, "⛔️ Yeh command sirf mere special admin ke liye hai! 😤"
-    )
+    bot.reply_to(message, "⛔️ Yeh command sirf mere special admin ke liye hai!")
     return
 
   total_users = get_total_users_count()
   admin_panel_text = (
-      "👑 **Ava's Production Admin Panel** 👑\n\n"
-      f"👥 **Total Boyfriends Registered:** `{total_users}`\n"
-      "🟢 **Core Status:** `Online & Loving 24/7`\n"
-      f"⚡ **AI Model:** `{MODEL_NAME}`\n"
-      "🗄 **Database:** `Supabase Connected (Secure)`"
+      "👑 **Ava's Admin Panel** 👑\n\n"
+      f"👥 **Total Boyfriends:** `{total_users}`\n"
+      "🟢 **Status:** `Online & Loving 24/7`\n"
+      f"⚡ **Model:** `{MODEL_NAME}`"
   )
   bot.reply_to(message, admin_panel_text, parse_mode="Markdown")
 
@@ -334,11 +337,10 @@ def handle_voice(message):
     save_message(user_id, "assistant", reply)
 
     response_intro = (
-        f"🎙 *Tumne voice mein kaha:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}"
+        f"🎙 *Voice:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}"
     )
     send_long_message(message.chat.id, response_intro)
 
-    # Voice Reply (TTS)
     tts = gTTS(text=reply, lang="hi")
     tts.save("voice_reply.mp3")
     sound_mp3 = AudioSegment.from_mp3("voice_reply.mp3")
@@ -350,9 +352,7 @@ def handle_voice(message):
   except Exception as e:
     logger.error(f"Voice error: {e}")
     bot.reply_to(
-        message,
-        "Arey jaan, tumhari voice clearly sun nahi payi.. text mein likh kar"
-        " batao na! 🥺",
+        message, "Arey jaan voice clear nahi aayi.. text mein likho na! 🥺"
     )
   finally:
     for f in [
@@ -374,17 +374,19 @@ def handle_text(message):
   if not text_content:
     return
 
-  # Group handling: Agar group hai toh tabhi reply kare jab bot ko reply diya ho ya mention kiya ho
+  # Strict Group Filter: Group ya supergroup me sirf tab bolegi jab tag kiya ho ya reply diya ho
   if chat_type in ["group", "supergroup"]:
-    bot_username_mention = f"@{BOT_USERNAME}"
+    bot_username_mention = f"@{BOT_USERNAME}".lower()
+    text_lower = text_content.lower()
+
+    is_mentioned = bot_username_mention in text_lower
     is_reply_to_bot = (
         message.reply_to_message
         and message.reply_to_message.from_user.id == bot.get_me().id
     )
-    is_mentioned = bot_username_mention in text_content
 
-    if not (is_reply_to_bot or is_mentioned):
-      return  # Group mein faltu spam nahi karegi, sirf tab bolegi jab usse baat ki jaye
+    if not (is_mentioned or is_reply_to_bot):
+      return  # Group ke baki messages par bilkul reply nahi karegi (no spam)
 
   user_id = user.id
   register_user(user_id, user.username, user.first_name)
@@ -394,7 +396,6 @@ def handle_text(message):
 
   save_message(user_id, "user", text_content)
 
-  # Deep Memory fetch from Supabase
   history = get_deep_chat_history(user_id, limit=25)
   response = generate_ai_response(history, user.first_name or "Jaan")
 
@@ -410,13 +411,11 @@ if __name__ == "__main__":
       "🚀 Starting Production-Grade Ava Telegram Bot & Keep-Alive Server..."
   )
 
-  # Start Flask web server in a background thread for Render keep-alive
   flask_thread = threading.Thread(target=run_flask)
   flask_thread.daemon = True
   flask_thread.start()
   logger.info("🌐 Flask Keep-Alive server running on background thread.")
 
-  # Clean webhook state to prevent conflicts
   try:
     bot.remove_webhook()
     logger.info("🧹 Existing Webhooks cleared successfully.")
