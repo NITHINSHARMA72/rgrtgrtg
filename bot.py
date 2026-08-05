@@ -38,16 +38,80 @@ bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
 
 # ==========================================
-# --- FLASK SERVER FOR RENDER KEEP-ALIVE ---
+# --- FLASK SERVER & STYLISH KEEP-ALIVE ---
 # ==========================================
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-  return (
-      "🚀 Advanced Groq Telegram Bot is active and running 24/7 on Render!"
-  )
+  html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Telegram AI Bot - Status</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: #0f172a;
+                color: #f8fafc;
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .card {
+                background: #1e293b;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+                text-align: center;
+                max-width: 450px;
+                width: 100%;
+                border: 1px solid #334155;
+            }
+            h1 {
+                color: #38bdf8;
+                font-size: 24px;
+                margin-bottom: 10px;
+            }
+            p {
+                color: #94a3b8;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            .status-badge {
+                display: inline-block;
+                background: rgba(34, 197, 94, 0.15);
+                color: #22c55e;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-weight: 600;
+                font-size: 14px;
+                margin: 15px 0;
+                border: 1px solid rgba(34, 197, 94, 0.3);
+            }
+            .footer {
+                margin-top: 20px;
+                font-size: 12px;
+                color: #64748b;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h1>🤖 Advanced Groq Telegram Bot</h1>
+            <div class="status-badge">● Online & Running 24/7</div>
+            <p>This web service acts as a keep-alive server to prevent Render from spinning down the Telegram bot instance.</p>
+            <div class="footer">Powered by Flask & Render Free Tier</div>
+        </div>
+    </body>
+    </html>
+    """
+  return html_content
 
 
 def run_flask():
