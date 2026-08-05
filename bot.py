@@ -28,10 +28,10 @@ SUPABASE_HEADERS = {
 }
 
 # Apna Telegram Numeric User ID yahan daalein (Admin ke liye)
-ADMIN_ID = 987654321
+ADMIN_ID = 8793053750
 
 # Bot ka Username (Group mein add karne ke link ke liye - bina @ ke)
-BOT_USERNAME = "YourBotUsername"  # <-- Apna bot ka username yahan daalein (e.g. AvaGFBot)
+BOT_USERNAME ="Chatbotgebot"  # <-- Apna bot ka username yahan daalein (e.g. AvaGFBot)
 
 # Groq High-Speed Model
 MODEL_NAME = "llama-3.3-70b-versatile"
