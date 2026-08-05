@@ -17,8 +17,8 @@ BOT_TOKEN = "8914661287:AAFn6cuJBHrpIZZm7y3_3YbtdrEqU8tq6gc"
 GROQ_API_KEY = "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"
 
 # --- SUPABASE CONFIGURATION ---
-SUPABASE_URL = "YOUR_SUPABASE_URL_HERE"  # Apna Supabase Project URL yahan daalein
-SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE"  # Apna Supabase Anon/Service Key yahan daalein
+SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"  # Apna Supabase Project URL yahan daalein
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"  # Apna Supabase Anon/Service Key yahan daalein
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
