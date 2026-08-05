@@ -17,8 +17,8 @@ BOT_TOKEN = "8914661287:AAFn6cuJBHrpIZZm7y3_3YbtdrEqU8tq6gc"
 GROQ_API_KEY = "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"
 
 # --- SUPABASE CONFIGURATION ---
-SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"  # Apna Supabase Project URL yahan daalein
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"  # Apna Supabase Anon/Service Key yahan daalein
+SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -29,6 +29,9 @@ SUPABASE_HEADERS = {
 
 # Apna Telegram Numeric User ID yahan daalein (Admin ke liye)
 ADMIN_ID = 987654321
+
+# Bot ka Username (Group mein add karne ke link ke liye - bina @ ke)
+BOT_USERNAME = "YourBotUsername"  # <-- Apna bot ka username yahan daalein (e.g. AvaGFBot)
 
 # Groq High-Speed Model
 MODEL_NAME = "llama-3.3-70b-versatile"
@@ -170,6 +173,21 @@ def send_long_message(chat_id, text):
     time.sleep(0.3)
 
 
+def try_react_to_message(chat_id, message_id):
+  """Kabhi-kabhi (random chance par) user ke message par cute reaction dega"""
+  if random.random() < 0.4:  # 40% chance reaction dene ka
+    reactions = ["❤️", "🔥", "🥰", "👍", "😁"]
+    chosen_reaction = random.choice(reactions)
+    try:
+      bot.set_message_reaction(
+          chat_id,
+          message_id,
+          [telebot.types.ReactionTypeEmoji(chosen_reaction)],
+      )
+    except Exception as e:
+      logger.debug(f"Reaction error (might not be supported in chat): {e}")
+
+
 # ==========================================
 # --- COMMAND HANDLERS ---
 # ==========================================
@@ -179,11 +197,35 @@ def cmd_start(message):
   register_user(user.id, user.username, user.first_name)
   name = user.first_name or "Jaan"
 
+  markup = telebot.types.InlineKeyboardMarkup()
+  btn_add = telebot.types.InlineKeyboardButton(
+      "➕ Add Me to Your Group",
+      url=f"https://t.me/{BOT_USERNAME}?startgroup=true",
+  )
+  markup.add(btn_add)
+
   welcome_text = (
       f"Hlo {name} ji! ❤️ Main **Ava** hoon... tumhari personal girlfriend! 🥰✨\n\n"
-      "Batao, aaj ka din kaisa raha tumhara? Main kabse tumhara hi wait kar rahi thi! 🥺💬"
+      "Batao, aaj ka din kaisa raha tumhara? Main kabse tumhara hi wait kar rahi thi! 🥺💬\n\n"
+      "👇 Mujhe apne group mein bhi add kar sakte ho!"
   )
-  bot.reply_to(message, welcome_text, parse_mode="Markdown")
+  try_react_to_message(message.chat.id, message.message_id)
+  bot.reply_to(message, welcome_text, reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.message_handler(commands=["add"])
+def cmd_add(message):
+  markup = telebot.types.InlineKeyboardMarkup()
+  btn_add = telebot.types.InlineKeyboardButton(
+      "➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
+  )
+  markup.add(btn_add)
+  bot.reply_to(
+      message,
+      "✨ Mujhe apne kisi bhi group mein add karne ke liye niche wale button par"
+      " click karo! Wahan bhi hum khoob baatein karenge. 🤭💕",
+      reply_markup=markup,
+  )
 
 
 @bot.message_handler(commands=["help"])
@@ -191,6 +233,7 @@ def cmd_help(message):
   help_text = (
       "💕 **Ava's Menu:**\n\n"
       "🔹 `/start` - Start chatting with me\n"
+      "🔹 `/add` - Add me to your group\n"
       "🔹 `/clear` - Purani baatein bhulane ke liye\n"
       "🔹 `/settings` - Apni profile dekhne ke liye\n"
   )
@@ -202,13 +245,13 @@ def cmd_help(message):
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
   user_id = message.chat.id
-  # Supabase delete messages for user
   url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
   try:
     requests.delete(url, headers=SUPABASE_HEADERS, timeout=10)
   except Exception as e:
     logger.error(f"Clear memory error: {e}")
 
+  try_react_to_message(message.chat.id, message.message_id)
   bot.reply_to(
       message,
       "🧹 Chalo purani saari baatein bhula di! Ab fresh shuru karte hain, bolo"
@@ -256,6 +299,7 @@ def handle_voice(message):
   register_user(user.id, user.username, user.first_name)
 
   bot.send_chat_action(user_id, "typing")
+  try_react_to_message(user_id, message.message_id)
 
   try:
     file_info = bot.get_file(message.voice.file_id)
@@ -325,6 +369,8 @@ def handle_text(message):
   register_user(user.id, user.username, user.first_name)
 
   bot.send_chat_action(user_id, "typing")
+  try_react_to_message(user_id, message.message_id)
+
   save_message(user_id, "user", text_content)
 
   history = get_recent_messages(user_id, limit=12)
