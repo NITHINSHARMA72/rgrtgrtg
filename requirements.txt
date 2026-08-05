@@ -3,3 +3,4 @@ requests
 gtts
 pydub
 SpeechRecognition
+requests==2.31.0
