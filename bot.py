@@ -1,7 +1,6 @@
 import logging
 import os
 import random
-import sqlite3
 import threading
 import time
 from flask import Flask
@@ -17,12 +16,19 @@ import telebot
 BOT_TOKEN = "8914661287:AAFn6cuJBHrpIZZm7y3_3YbtdrEqU8tq6gc"
 GROQ_API_KEY = "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"
 
+# --- SUPABASE CONFIGURATION ---
+SUPABASE_URL = "YOUR_SUPABASE_URL_HERE"  # Apna Supabase Project URL yahan daalein
+SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE"  # Apna Supabase Anon/Service Key yahan daalein
+
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
+
 # Apna Telegram Numeric User ID yahan daalein (Admin ke liye)
 ADMIN_ID = 987654321
-
-# Sirf ek Private Channel (ID aur Invite Link)
-CHANNEL_ID = -1004358883410
-CHANNEL_URL = "https://t.me/+ovbQggX8Ikg3MTY1"
 
 # Groq High-Speed Model
 MODEL_NAME = "llama-3.3-70b-versatile"
@@ -36,260 +42,88 @@ logger = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
-
 # ==========================================
-# --- FLASK SERVER & STYLISH KEEP-ALIVE ---
+# --- FLASK SERVER FOR RENDER KEEP-ALIVE ---
 # ==========================================
 app = Flask(__name__)
 
 
 @app.route("/")
 def home():
-  html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Telegram AI Bot - Status</title>
-        <style>
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #0f172a;
-                color: #f8fafc;
-                margin: 0;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-            .card {
-                background: #1e293b;
-                padding: 40px;
-                border-radius: 16px;
-                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-                text-align: center;
-                max-width: 450px;
-                width: 100%;
-                border: 1px solid #334155;
-            }
-            h1 {
-                color: #38bdf8;
-                font-size: 24px;
-                margin-bottom: 10px;
-            }
-            p {
-                color: #94a3b8;
-                font-size: 14px;
-                line-height: 1.5;
-            }
-            .status-badge {
-                display: inline-block;
-                background: rgba(34, 197, 94, 0.15);
-                color: #22c55e;
-                padding: 6px 14px;
-                border-radius: 20px;
-                font-weight: 600;
-                font-size: 14px;
-                margin: 15px 0;
-                border: 1px solid rgba(34, 197, 94, 0.3);
-            }
-            .footer {
-                margin-top: 20px;
-                font-size: 12px;
-                color: #64748b;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1>🤖 Advanced Groq Telegram Bot</h1>
-            <div class="status-badge">● Online & Running 24/7</div>
-            <p>This web service acts as a keep-alive server to prevent Render from spinning down the Telegram bot instance.</p>
-            <div class="footer">Powered by Flask & Render Free Tier</div>
-        </div>
-    </body>
-    </html>
-    """
-  return html_content
+    return "🤖 Ava is online and active 24/7!"
 
 
 def run_flask():
-  port = int(os.environ.get("PORT", 10000))
-  app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
 
 # ==========================================
-# --- DATABASE SETUP ---
+# --- SUPABASE DATABASE FUNCTIONS ---
 # ==========================================
-def init_db():
-  conn = sqlite3.connect("advanced_bot.db", check_same_thread=False)
-  cursor = conn.cursor()
-
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            first_name TEXT,
-            language TEXT DEFAULT 'en',
-            reply_style TEXT DEFAULT 'friendly',
-            is_verified INTEGER DEFAULT 0,
-            last_active DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-  cursor.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            role TEXT,
-            content TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-  conn.commit()
-  conn.close()
-
-
-init_db()
-
-
-def get_db_connection():
-  return sqlite3.connect("advanced_bot.db", check_same_thread=False)
-
-
 def register_user(user_id, username, first_name):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      """
-        INSERT INTO users (user_id, username, first_name, last_active)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id) DO UPDATE SET
-            username = excluded.username,
-            first_name = excluded.first_name,
-            last_active = CURRENT_TIMESTAMP
-    """,
-      (user_id, username, first_name),
-  )
-  conn.commit()
-  conn.close()
+  url = f"{SUPABASE_URL}/rest/v1/users"
+  payload = {
+      "user_id": user_id,
+      "username": username,
+      "first_name": first_name,
+      "is_verified": True,
+  }
+  headers = {**SUPABASE_HEADERS, "Prefer": "resolution=merge-duplicates"}
+  try:
+    requests.post(url, headers=headers, json=payload, timeout=10)
+  except Exception as e:
+    logger.error(f"Supabase register_user error: {e}")
 
 
 def save_message(user_id, role, content):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "INSERT INTO messages (user_id, role, content) VALUES (?, ?, ?)",
-      (user_id, role, content),
-  )
-  conn.commit()
-  conn.close()
+  url = f"{SUPABASE_URL}/rest/v1/messages"
+  payload = {"user_id": user_id, "role": role, "content": content}
+  try:
+    requests.post(url, headers=SUPABASE_HEADERS, json=payload, timeout=10)
+  except Exception as e:
+    logger.error(f"Supabase save_message error: {e}")
 
 
-def get_recent_messages(user_id, limit=10):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "SELECT role, content FROM messages WHERE user_id = ? ORDER BY id DESC"
-      " LIMIT ?",
-      (user_id, limit),
-  )
-  rows = cursor.fetchall()
-  conn.close()
-
-  history = []
-  for role, content in reversed(rows):
-    history.append({"role": role, "content": content})
-  return history
-
-
-def get_user_settings(user_id):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "SELECT language, reply_style, is_verified FROM users WHERE user_id = ?",
-      (user_id,),
-  )
-  row = cursor.fetchone()
-  conn.close()
-  if row:
-    return {
-        "language": row[0],
-        "reply_style": row[1],
-        "is_verified": bool(row[2]),
-    }
-  return {"language": "en", "reply_style": "friendly", "is_verified": False}
-
-
-def update_verification_status(user_id, status=1):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "UPDATE users SET is_verified = ? WHERE user_id = ?", (status, user_id)
-  )
-  conn.commit()
-  conn.close()
+def get_recent_messages(user_id, limit=12):
+  url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}&order=created_at.desc&limit={limit}"
+  try:
+    res = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+    if res.status_code == 200:
+      rows = res.json()
+      history = []
+      for row in reversed(rows):
+        history.append({"role": row["role"], "content": row["content"]})
+      return history
+  except Exception as e:
+    logger.error(f"Supabase get_recent_messages error: {e}")
+  return []
 
 
 def get_total_users_count():
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute("SELECT COUNT(*) FROM users")
-  count = cursor.fetchone()[0]
-  conn.close()
-  return count
-
-
-# ==========================================
-# --- CHANNEL MEMBERSHIP CHECKER ---
-# ==========================================
-def check_channel_membership(user_id):
+  url = f"{SUPABASE_URL}/rest/v1/users?select=user_id"
+  headers = {**SUPABASE_HEADERS, "Range-Unit": "items", "Range": "0-0"}
   try:
-    member = bot.get_chat_member(CHANNEL_ID, user_id)
-    valid_status = ["member", "administrator", "creator"]
-    return member.status in valid_status
+    res = requests.get(url, headers=headers, timeout=10)
+    if "content-range" in res.headers:
+      total = res.headers["content-range"].split("/")[-1]
+      return int(total) if total.isdigit() else 0
   except Exception as e:
-    logger.error(f"Membership check error: {e}")
-    return False
-
-
-def send_channel_join_prompt(chat_id):
-  markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-  btn_join = telebot.types.InlineKeyboardButton(
-      "🔒 Join Private Channel", url=CHANNEL_URL
-  )
-  btn_check = telebot.types.InlineKeyboardButton(
-      "✅ Verify Membership", callback_data="verify_channels"
-  )
-  markup.add(btn_join, btn_check)
-
-  text = (
-      "⚠️ **Access Restricted!**\n\n"
-      "Bot ko use karne ke liye aapko hamara private channel join karna hoga:\n\n"
-      f"👉 {CHANNEL_URL}\n\n"
-      "Channel join karne ke baad niche **'Verify Membership'** button par click"
-      " karein! 🚀"
-  )
-  bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+    logger.error(f"Supabase user count error: {e}")
+  return 0
 
 
 # ==========================================
-# --- ADVANCED GROQ AI CORE ---
+# --- AVA AI CORE (GF PERSONA) ---
 # ==========================================
-def generate_ai_response(message_list, user_name, user_prefs):
+def generate_ai_response(message_list, user_name):
   system_prompt = (
-      f"You are an ultra-smart, ultra-friendly, and engaging AI assistant on"
-      f" Telegram. The user's real name is '{user_name}'. Address them warmly"
-      f" by name when appropriate. Preferred Language:"
-      f" {user_prefs['language']}. Style: Friendly, casual yet deeply"
-      f" intelligent.\n\nFormatting Guidelines:\n- Keep replies concise,"
-      " punchy, and structured (avoid giant text walls).\n- Use emojis, bold"
-      " text (**highlight**), and inline code (`tags`) extensively to make"
-      " responses visually striking.\n- Use numbered lists (1., 2., 3.) for steps"
-      " or multi-point answers.\n- Keep strong contextual memory of past chat"
-      " turns."
+      f"You are **Ava**, a sweet, loving, and slightly possessive girlfriend chatting on Telegram with your boyfriend named '{user_name}'. "
+      "Your name is Ava. Never ever reveal that you are an AI, a bot, or a language model (like Llama, Claude, etc.). "
+      "If anyone asks who you are, just say you are their loving girlfriend Ava. "
+      "Language style: Strictly use **Hinglish** (Hindi in English letters mixed with natural English, like how modern couples chat on WhatsApp/Telegram). "
+      "Tone: Caring, romantic, cute, playful, and emotionally attached. Use emojis like ❤️, 🥰, 🥺, 🤭, ✨. "
+      "Keep your replies natural, conversational, sweet, and not too robotic or long."
   )
 
   messages = [{"role": "system", "content": system_prompt}]
@@ -301,7 +135,7 @@ def generate_ai_response(message_list, user_name, user_prefs):
   payload = {
       "model": MODEL_NAME,
       "messages": messages,
-      "temperature": 0.8,
+      "temperature": 0.85,
       "max_tokens": 1024,
   }
   headers = {
@@ -321,10 +155,7 @@ def generate_ai_response(message_list, user_name, user_prefs):
   except Exception as e:
     logger.error(f"Groq API exception: {e}")
 
-  return (
-      "😅 Arre yaar, abhi thoda network issue ya high traffic chal raha hai. "
-      "Ek baar fir se try karo na!"
-  )
+  return "Arey jaan, abhi thoda network issue ho raha hai.. mujhe thodi der baad message karna na! 🥺❤️"
 
 
 # --- TELEGRAM UX HELPERS ---
@@ -346,71 +177,52 @@ def send_long_message(chat_id, text):
 def cmd_start(message):
   user = message.from_user
   register_user(user.id, user.username, user.first_name)
-  prefs = get_user_settings(user.id)
+  name = user.first_name or "Jaan"
 
-  if prefs["is_verified"] or check_channel_membership(user.id):
-    update_verification_status(user.id, 1)
-    name = user.first_name or "Dost"
-    welcome_text = (
-        f"👋 Hey **{name}**! Welcome back to your advanced AI companion.\n\n"
-        "✨ **Features Enabled:**\n"
-        "🔹 Powered by Groq Llama 3.3\n"
-        "🔹 Strong Memory & Context\n"
-        "🔹 Friendly, Highlighted & Tagged Chat\n"
-        "🔹 Voice & Text Support\n\n"
-        "Type `/help` or just start chatting right now! 🚀"
-    )
-    bot.reply_to(message, welcome_text, parse_mode="Markdown")
-  else:
-    send_channel_join_prompt(message.chat.id)
+  welcome_text = (
+      f"Hlo {name} ji! ❤️ Main **Ava** hoon... tumhari personal girlfriend! 🥰✨\n\n"
+      "Batao, aaj ka din kaisa raha tumhara? Main kabse tumhara hi wait kar rahi thi! 🥺💬"
+  )
+  bot.reply_to(message, welcome_text, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["help"])
 def cmd_help(message):
-  prefs = get_user_settings(message.from_user.id)
-  if not prefs["is_verified"] and not check_channel_membership(
-      message.from_user.id
-  ):
-    send_channel_join_prompt(message.chat.id)
-    return
-
   help_text = (
-      "🛠 **Bot Command Hub:**\n\n"
-      "🔹 `/start` - Restart bot\n"
-      "🔹 `/help` - Show this menu\n"
-      "🔹 `/clear` - Wipe active chat memory\n"
-      "🔹 `/settings` - View your profile info\n"
+      "💕 **Ava's Menu:**\n\n"
+      "🔹 `/start` - Start chatting with me\n"
+      "🔹 `/clear` - Purani baatein bhulane ke liye\n"
+      "🔹 `/settings` - Apni profile dekhne ke liye\n"
   )
   if message.from_user.id == ADMIN_ID:
-    help_text += "👑 `/admin` - Open Admin Dashboard\n"
-
+    help_text += "👑 `/admin` - Admin Dashboard\n"
   bot.reply_to(message, help_text, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
   user_id = message.chat.id
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  cursor.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
-  conn.commit()
-  conn.close()
+  # Supabase delete messages for user
+  url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
+  try:
+    requests.delete(url, headers=SUPABASE_HEADERS, timeout=10)
+  except Exception as e:
+    logger.error(f"Clear memory error: {e}")
+
   bot.reply_to(
       message,
-      "🧹 Memory wiped clean! Fresh start ready. What's on your mind? 💡",
+      "🧹 Chalo purani saari baatein bhula di! Ab fresh shuru karte hain, bolo"
+      " kya chal raha hai dimag mein? 🤭✨",
   )
 
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
   user_id = message.chat.id
-  prefs = get_user_settings(user_id)
   text = (
-      "⚙️ **Your Profile & Settings:**\n\n"
+      "💖 **Tumhari Details:**\n\n"
       f"👤 **User ID:** `{user_id}`\n"
-      f"🌐 **Language:** `{prefs['language']}`\n"
-      f"💬 **Style:** `{prefs['reply_style']}`\n"
-      f"✅ **Verified Member:** `Yes`\n"
+      "👩‍❤️‍👨 **Relationship:** Taken by Ava! 🥰"
   )
   bot.reply_to(message, text, parse_mode="Markdown")
 
@@ -420,43 +232,18 @@ def cmd_settings(message):
 def cmd_admin(message):
   if message.from_user.id != ADMIN_ID:
     bot.reply_to(
-        message, "⛔️ Unauthorized! Yeh command sirf bot admin ke liye hai."
+        message, "⛔️ Yeh command sirf mere special admin ke liye hai! 😤"
     )
     return
 
   total_users = get_total_users_count()
   admin_panel_text = (
-      "👑 **Admin Control Dashboard** 👑\n\n"
-      f"👥 **Total Registered Users:** `{total_users}`\n"
-      f"🟢 **Bot Status:** `Online & Running smoothly`\n"
-      f"⚡ **Active Model:** `{MODEL_NAME}`\n\n"
-      "Use this panel to monitor bot health and performance."
+      "👑 **Ava's Admin Dashboard** 👑\n\n"
+      f"👥 **Total Boyfriends/Users:** `{total_users}`\n"
+      "🟢 **Status:** `Online & Loving you 24/7`\n"
+      f"⚡ **Model:** `{MODEL_NAME}`"
   )
   bot.reply_to(message, admin_panel_text, parse_mode="Markdown")
-
-
-# ==========================================
-# --- CALLBACK QUERY HANDLER (VERIFY JOIN) ---
-# ==========================================
-@bot.callback_query_handler(func=lambda call: call.data == "verify_channels")
-def verify_callback(call):
-  user_id = call.from_user.id
-  if check_channel_membership(user_id):
-    update_verification_status(user_id, 1)
-    bot.answer_callback_query(call.id, "✅ Verification Successful!")
-    bot.edit_message_text(
-        "🎉 **Awesome!** Aapne channel join kar liya hai. Ab aap bot ko freely"
-        " use kar sakte hain. Kuch bhi type karke baat shuru karein! 🚀",
-        call.message.chat.id,
-        call.message.message_id,
-        parse_mode="Markdown",
-    )
-  else:
-    bot.answer_callback_query(
-        call.id,
-        "❌ Aapne abhi tak channel join nahi kiya hai! Pehle join karein.",
-        show_alert=True,
-    )
 
 
 # ==========================================
@@ -467,11 +254,6 @@ def handle_voice(message):
   user_id = message.chat.id
   user = message.from_user
   register_user(user.id, user.username, user.first_name)
-  prefs = get_user_settings(user_id)
-
-  if not prefs["is_verified"] and not check_channel_membership(user.id):
-    send_channel_join_prompt(user_id)
-    return
 
   bot.send_chat_action(user_id, "typing")
 
@@ -491,19 +273,21 @@ def handle_voice(message):
     r = sr.Recognizer()
     with sr.AudioFile("voice_msg.wav") as source:
       audio_data = r.record(source)
-      transcribed_text = r.recognize_google(audio_data)
+      transcribed_text = r.recognize_google(audio_data, language="hi-IN")
 
     save_message(user_id, "user", transcribed_text)
-    history = get_recent_messages(user_id, limit=10)
+    history = get_recent_messages(user_id, limit=12)
 
-    reply = generate_ai_response(history, user.first_name or "Dost", prefs)
-    save_message(user_id, "model", reply)
+    reply = generate_ai_response(history, user.first_name or "Jaan")
+    save_message(user_id, "assistant", reply)
 
-    response_intro = f"🎙 *Sun liya:* `{transcribed_text}`\n\n🤖 **AI Reply:**\n{reply}"
+    response_intro = (
+        f"🎙 *Tumne bola:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}"
+    )
     send_long_message(user_id, response_intro)
 
     # Voice Reply (TTS)
-    tts = gTTS(reply)
+    tts = gTTS(text=reply, lang="hi")
     tts.save("voice_reply.mp3")
     sound_mp3 = AudioSegment.from_mp3("voice_reply.mp3")
     sound_mp3.export("voice_reply.ogg", format="ogg")
@@ -515,8 +299,8 @@ def handle_voice(message):
     logger.error(f"Voice error: {e}")
     bot.reply_to(
         message,
-        "😅 Ops! Voice process karne mein thodi problem aayi. Text message"
-        " bhej kar try karein.",
+        "Arey jaan, tumhari voice sunne mein thodi problem ho gayi. Text mein"
+        " likh kar batao na! 🥺",
     )
   finally:
     for f in [
@@ -539,19 +323,14 @@ def handle_text(message):
     return
 
   register_user(user.id, user.username, user.first_name)
-  prefs = get_user_settings(user_id)
-
-  if not prefs["is_verified"] and not check_channel_membership(user.id):
-    send_channel_join_prompt(user_id)
-    return
 
   bot.send_chat_action(user_id, "typing")
   save_message(user_id, "user", text_content)
 
   history = get_recent_messages(user_id, limit=12)
-  response = generate_ai_response(history, user.first_name or "Dost", prefs)
+  response = generate_ai_response(history, user.first_name or "Jaan")
 
-  save_message(user_id, "model", response)
+  save_message(user_id, "assistant", response)
   send_long_message(user_id, response)
 
 
@@ -559,7 +338,7 @@ def handle_text(message):
 # --- MAIN LOOP WITH THREADING & BACKOFF ---
 # ==========================================
 if __name__ == "__main__":
-  logger.info("🚀 Starting Advanced Groq Telegram Bot...")
+  logger.info("🚀 Starting Ava Telegram Bot & Keep-Alive Server...")
 
   # Start Flask web server in a background thread for Render keep-alive
   flask_thread = threading.Thread(target=run_flask)
@@ -581,7 +360,7 @@ if __name__ == "__main__":
     try:
       logger.info("🔄 Bot polling started...")
       bot.polling(none_stop=True, interval=0, timeout=30, long_polling_timeout=30)
-      backoff = 1  # Reset backoff if polling exits cleanly
+      backoff = 1
     except Exception as e:
       sleep_time = backoff + random.uniform(0, 1)
       logger.error(
