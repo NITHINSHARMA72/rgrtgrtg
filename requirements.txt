@@ -1,6 +1,8 @@
-pytelegrambotapi
-flask
+pyTelegramBotAPI
+Flask
 requests
-gtts
+cachetools
+gTTS
 pydub
 SpeechRecognition
+urllib3
