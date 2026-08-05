@@ -48,6 +48,12 @@ logger = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
+# Cache BOT_ID at startup to prevent unnecessary API calls on every group message
+try:
+    BOT_ID = bot.get_me().id
+except Exception:
+    BOT_ID = None
+
 # --- REQUESTS SESSION WITH RETRY SYSTEM ---
 session = requests.Session()
 retry = Retry(
@@ -60,8 +66,9 @@ adapter = HTTPAdapter(max_retries=retry)
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
-# --- PERFORMANCE CACHES & SECURITY SETS (Fixed Memory Leak & Duplicate Bugs) ---
+# --- PERFORMANCE CACHES, LOCKS & SECURITY SETS ---
 user_cache = TTLCache(maxsize=1000, ttl=3600)  # TTL Cache (1 hour expiry)
+cache_lock = threading.Lock()                  # Thread safety lock for caches
 last_message_time = {}                         # Rate Limiter tracker
 processed_messages = deque(maxlen=1000)        # Fixed deque for duplicate protection
 last_admin_error_time = 0                      # Cooldown timer to prevent admin spam
@@ -120,8 +127,9 @@ def save_message(user_id, role, content):
 
 
 def get_deep_chat_history(user_id, limit=20):
-    if user_id in user_cache:
-        return user_cache[user_id]
+    with cache_lock:
+        if user_id in user_cache:
+            return user_cache[user_id]
 
     url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}&order=created_at.desc&limit={limit}"
     try:
@@ -132,7 +140,9 @@ def get_deep_chat_history(user_id, limit=20):
         
         rows = res.json()
         history = [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
-        user_cache[user_id] = history
+        
+        with cache_lock:
+            user_cache[user_id] = history
         return history
     except Exception as e:
         logger.error(f"Supabase get_deep_chat_history error: {e}")
@@ -140,11 +150,12 @@ def get_deep_chat_history(user_id, limit=20):
 
 
 def update_user_cache(user_id, role, content):
-    if user_id not in user_cache:
-        user_cache[user_id] = []
-    user_cache[user_id].append({"role": role, "content": content})
-    if len(user_cache[user_id]) > 30:
-        user_cache[user_id].pop(0)
+    with cache_lock:
+        if user_id not in user_cache:
+            user_cache[user_id] = []
+        user_cache[user_id].append({"role": role, "content": content})
+        if len(user_cache[user_id]) > 30:
+            user_cache[user_id].pop(0)
 
 
 def get_total_users_count():
@@ -251,7 +262,7 @@ def notify_admin(error_msg):
     # 5 minutes cooldown to avoid admin alert spam
     if current_time - last_admin_error_time > 300:
         try:
-            bot.send_message(ADMIN_ID, f"❌ **Bot Error Alert:**\n`{error_msg}`", parse_mode="Markdown")
+            bot.send_message(ADMIN_ID, f"❌ **Bot Error Alert:**\n`{error_msg}`")
             last_admin_error_time = current_time
         except Exception as e:
             logger.error(f"Failed to send admin notification: {e}")
@@ -278,7 +289,7 @@ def cmd_start(message):
         "👇 Mujhe group mein bhi add kar sakte ho!"
     )
     try_react_to_message(message.chat.id, message.message_id)
-    bot.reply_to(message, welcome_text, reply_markup=markup, parse_mode="Markdown")
+    bot.reply_to(message, welcome_text, reply_markup=markup)
 
 
 @bot.message_handler(commands=["add"])
@@ -302,7 +313,7 @@ def cmd_help(message):
     )
     if message.from_user.id == ADMIN_ID:
         help_text += "👑 `/admin` - Admin Dashboard\n"
-    bot.reply_to(message, help_text, parse_mode="Markdown")
+    bot.reply_to(message, help_text)
 
 
 @bot.message_handler(commands=["clear"])
@@ -311,8 +322,9 @@ def cmd_clear(message):
     url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
     try:
         session.delete(url, headers=SUPABASE_HEADERS, timeout=10)
-        if user_id in user_cache:
-            del user_cache[user_id]
+        with cache_lock:
+            if user_id in user_cache:
+                del user_cache[user_id]
     except Exception as e:
         logger.error(f"Clear memory error: {e}")
 
@@ -329,7 +341,7 @@ def cmd_settings(message):
         "👩‍❤️‍👨 **Status:** Taken by Ava! 🥰\n"
         "🧠 **Memory:** TTL Cache + Supabase Active"
     )
-    bot.reply_to(message, text, parse_mode="Markdown")
+    bot.reply_to(message, text)
 
 
 @bot.message_handler(commands=["admin"])
@@ -344,16 +356,15 @@ def cmd_admin(message):
         f"👥 **Total Boyfriends:** `{total_users}`\n"
         "🟢 **Status:** `Online & Loving 24/7`\n"
         f"⚡ **Model:** `{MODEL_NAME}`\n"
-        "🚀 **Performance:** `Optimized with TTL Caching & Deque`"
+        "🚀 **Performance:** `Optimized with Thread Locks & TTL Cache`"
     )
-    bot.reply_to(message, admin_panel_text, parse_mode="Markdown")
+    bot.reply_to(message, admin_panel_text)
 
 
 # ==========================================
 # --- MESSAGE & ASYNC VOICE HANDLERS ---
 # ==========================================
 def process_voice_background(message):
-    # FIXED: Unique filenames using user_id and timestamp_ns to prevent race conditions
     unique_id = f"{message.from_user.id}_{time.time_ns()}"
     ogg_msg = f"voice_msg_{unique_id}.ogg"
     wav_msg = f"voice_msg_{unique_id}.wav"
@@ -387,7 +398,7 @@ def process_voice_background(message):
         save_message(user_id, "assistant", reply)
         update_user_cache(user_id, "assistant", reply)
 
-        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}", parse_mode="Markdown")
+        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}")
 
         # Voice Reply (TTS)
         tts = gTTS(text=reply, lang="hi")
@@ -411,13 +422,13 @@ def process_voice_background(message):
 def handle_voice(message):
     register_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     try_react_to_message(message.chat.id, message.message_id)
-    threading.Thread(target=process_voice_background, args=(message,)).start()
+    # FIXED: Explicit daemon thread for voice processing
+    threading.Thread(target=process_voice_background, args=(message,), daemon=True).start()
 
 
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     try:
-        # FIXED: Deque duplicate message protection
         if message.message_id in processed_messages:
             return
         processed_messages.append(message.message_id)
@@ -436,11 +447,11 @@ def handle_text(message):
                 return
         last_message_time[user.id] = current_time
 
-        # Strict Group Filter (Only reply if mentioned or replied directly)
+        # Strict Group Filter (Only reply if mentioned or replied directly, using cached BOT_ID)
         if chat_type in ["group", "supergroup"]:
             bot_mention = f"@{BOT_USERNAME}".lower()
             is_mentioned = bot_mention in text_content.lower()
-            is_reply = message.reply_to_message and message.reply_to_message.from_user.id == bot.get_me().id
+            is_reply = message.reply_to_message and message.reply_to_message.from_user.id == BOT_ID
             if not (is_mentioned or is_reply):
                 return
 
@@ -473,7 +484,8 @@ def handle_text(message):
         save_message(user_id, "assistant", response)
         update_user_cache(user_id, "assistant", response)
 
-        bot.reply_to(message, response, parse_mode="Markdown")
+        # FIXED: Plain text reply to completely prevent Telegram Markdown crash bugs
+        bot.reply_to(message, response)
 
     except Exception as e:
         logger.error(f"Critical execution error in text handler: {e}")
