@@ -1,6 +1,6 @@
 pytelegrambotapi
+flask
 requests
 gtts
 pydub
 SpeechRecognition
-requests
