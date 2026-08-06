@@ -73,6 +73,7 @@ cache_lock = threading.Lock()
 last_message_time = {}
 processed_messages = deque(maxlen=1000)
 last_admin_error_time = 0
+ACTIVE_GAMES = {}  # Store active guessing games for users
 
 # ==========================================
 # --- FLASK KEEP-ALIVE SERVER ---
@@ -302,9 +303,10 @@ def get_main_keyboard():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     btn_add = telebot.types.InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
     btn_gk = telebot.types.InlineKeyboardButton("🧠 Creative GK / Fact", callback_data="btn_creative_gk")
+    btn_game = telebot.types.InlineKeyboardButton("🎮 Play Mini-Game", callback_data="btn_play_game")
     btn_vibe = telebot.types.InlineKeyboardButton("✨ Current Vibe", callback_data="btn_check_vibe")
     btn_help = telebot.types.InlineKeyboardButton("📖 Help Menu", callback_data="btn_help")
-    markup.add(btn_add, btn_gk, btn_vibe, btn_help)
+    markup.add(btn_add, btn_gk, btn_game, btn_vibe, btn_help)
     return markup
 
 @bot.message_handler(commands=["start"])
@@ -316,7 +318,7 @@ def cmd_start(message):
 
     welcome_text = (
         f"Hlo {name} ji! ✨ Main **Ava** hoon. Is waqt `{t_ctx['time_string']}` ho raha hai aur ek pyaari si `{t_ctx['part_of_day']}` hai! 😊\n\n"
-        "Main ek chill aur friendly companion hoon jo tumse har topic par baat kar sakti hai—chahe general knowledge ho, random facts ho, ya dil ki baatein!\n\n"
+        "Main ek chill aur friendly companion hoon jo tumse har topic par baat kar sakti hai—chahe general knowledge ho, games ho, ya dil ki baatein!\n\n"
         "Niche diye gaye buttons se explore karo ya direct message bhejo! 💬"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
@@ -335,6 +337,7 @@ def cmd_help(message):
         "✨ **Ava's Menu:**\n\n"
         "🔹 `/start` - Main menu aur buttons\n"
         "🔹 `/gk` - Koi mast creative general knowledge fact\n"
+        "🔹 `/game` - Guess the Number mini-game khelo\n"
         "🔹 `/add` - Mujhe group mein add karo\n"
         "🔹 `/clear` - Purani memory clear karne ke liye\n"
         "🔹 `/settings` - Profile status\n"
@@ -359,6 +362,19 @@ def cmd_gk(message):
     t_thread.join(timeout=1)
 
     bot.reply_to(message, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
+
+@bot.message_handler(commands=["game"])
+def cmd_game(message):
+    user_id = message.chat.id
+    secret_number = random.randint(1, 50)
+    ACTIVE_GAMES[user_id] = {"target": secret_number, "attempts": 0}
+    
+    game_text = (
+        "🎮 **Guess the Number Game!** 🎲\n\n"
+        "Maine 1 se 50 ke beech ek number soch liya hai. Tumhe guess karke chat me number bhejna hai!\n"
+        "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
+    )
+    bot.reply_to(message, game_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
@@ -427,6 +443,17 @@ def handle_callbacks(call):
         fact_resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Chill, Playful & Curious 🤭")
         bot.send_message(call.message.chat.id, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
 
+    elif data == "btn_play_game":
+        bot.answer_callback_query(call.id, "🎮 Starting Guess the Number!")
+        secret_number = random.randint(1, 50)
+        ACTIVE_GAMES[user_id] = {"target": secret_number, "attempts": 0}
+        game_text = (
+            "🎮 **Guess the Number Game!** 🎲\n\n"
+            "Maine 1 se 50 ke beech ek number soch liya hai. Tumhe guess karke chat me number bhejna hai!\n"
+            "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
+        )
+        bot.send_message(call.message.chat.id, game_text, reply_markup=get_main_keyboard())
+
     elif data == "btn_check_vibe":
         t_ctx = get_time_context()
         bot.answer_callback_query(call.id, f"Current vibe: {t_ctx['part_of_day']}")
@@ -438,6 +465,7 @@ def handle_callbacks(call):
             "✨ **Ava's Menu:**\n\n"
             "🔹 `/start` - Main menu aur buttons\n"
             "🔹 `/gk` - Koi mast creative general knowledge fact\n"
+            "🔹 `/game` - Guess the Number mini-game khelo\n"
             "🔹 `/add` - Mujhe group mein add karo\n"
             "🔹 `/clear` - Purani memory clear karne ke liye\n"
             "🔹 `/settings` - Profile status\n"
@@ -540,6 +568,7 @@ def handle_voice(message):
 def handle_text(message):
     try:
         user_id = message.from_user.id
+        chat_id = message.chat.id
 
         # Handle Admin Broadcast Input
         if user_id == ADMIN_ID and ADMIN_BROADCAST_STATE.get(user_id):
@@ -559,7 +588,7 @@ def handle_text(message):
                 try:
                     bot.copy_message(chat_id=uid, from_chat_id=message.chat.id, message_id=message.message_id)
                     success_count += 1
-                    time.sleep(0.04) # Rate limit safeguard
+                    time.sleep(0.04)
                 except Exception as e:
                     logger.debug(f"Broadcast fail for {uid}: {e}")
                     fail_count += 1
@@ -567,16 +596,35 @@ def handle_text(message):
             bot.edit_message_text(f"📢 **Broadcast Completed!**\n\n✅ Successful: `{success_count}`\n❌ Failed: `{fail_count}`", status_msg.chat.id, status_msg.message_id)
             return
 
+        text_content = message.text
+        if not text_content:
+            return
+
+        # Check if user is currently playing the Mini-Game
+        if chat_id in ACTIVE_GAMES and text_content.isdigit():
+            guess = int(text_content)
+            game = ACTIVE_GAMES[chat_id]
+            game["attempts"] += 1
+            target = game["target"]
+
+            if guess == target:
+                attempts = game["attempts"]
+                del ACTIVE_GAMES[chat_id]
+                bot.reply_to(message, f"🎉 **BINGO! Sahi jawab!** 🎉\nTumne sirf `{attempts}` attempts mein number (`{target}`) guess kar liya! Maza aa gaya 🤭✨", reply_markup=get_main_keyboard())
+                return
+            elif guess < target:
+                bot.reply_to(message, "📈 Thoda **bada** number try karo! (Aage badho)")
+                return
+            else:
+                bot.reply_to(message, "📉 Thoda **chhota** number try karo! (Peeche aao)")
+                return
+
         if message.message_id in processed_messages:
             return
         processed_messages.append(message.message_id)
 
         chat_type = message.chat.type
         user = message.from_user
-        text_content = message.text
-
-        if not text_content:
-            return
 
         current_time = time.time()
         if user.id in last_message_time:
