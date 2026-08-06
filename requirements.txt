@@ -1,8 +1,10 @@
-pyTelegramBotAPI
-Flask
+pyTelegramBotAPI==4.26.0
+groq
+supabase
+flask
 requests
 cachetools
-gTTS
+gtts
 pydub
 SpeechRecognition
-urllib3
+pytz
