@@ -25,7 +25,7 @@ GROQ_API_KEY = "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"
 
 # --- SUPABASE CONFIGURATION ---
 SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Ikwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -204,9 +204,7 @@ def detect_mood_and_situation(text):
         
     if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan", "dukhi", "demotivated", "haar gaya"]):
         return "Sad & Needs Motivation 💪"
-    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate", "dimag kharab"]):
-        return "Annoyed/Teasing 🔥 (Roast Mode)"
-    elif any(w in text_lower for w in ["roast me", "roast", "izzat", "bezzati"]):
+    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate", "dimag kharab", "roast", "izzat", "bezzati"]):
         return "Roast Mode 🔥"
     elif any(w in text_lower for w in ["joke", "hasao", "comedy", "hasya"]):
         return "Comedy & Jokes 😂"
@@ -227,7 +225,7 @@ def generate_ai_response(message_list, user_name, situation):
         "**Strict Rule:** Tumhe shuruat se lekar aakhiri tak hamesha **Hinglish** mein hi baat karni hai (Hindi words in English alphabets mixed smoothly with casual English slang, jaise real Indian chat karte hain). Pure English mein bilkul reply mat dena.\n"
         f"**Real-time Awareness:** Abhi current time `{t_ctx['time_string']}` hai aur yeh `{t_ctx['part_of_day']}` ka waqt hai ({t_ctx['time_desc']}). "
         "Apni baato aur greetings mein is real-time day/night context ko naturally weave kiya karo.\n"
-        "1. **Situational Features (Roast & Motivation):** Agar user roast maangne ko bole ya teases kare, toh ekdum witty aur savage roast do (par dosti ke daayre mein). Agar user sad ya demotivated ho, toh ekdum powerful motivation aur emotional support do.\n"
+        "1. **Situational Features (Roast & Motivation):** Agar user roast maangne ko bole ya teases kare, toh ekdum witty aur savage roast do. Agar user sad ya demotivated ho, toh ekdum powerful motivation aur emotional support do.\n"
         "2. **Jokes & Shayari:** Jab bhi mazak ya shayari ki baat ho, toh ekdum zabardast aur funny jokes ya deep shayari sunao.\n"
         "3. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Boundary set karna achhe se jaanti ho.\n"
         "4. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
@@ -304,15 +302,15 @@ def notify_admin(error_msg):
             logger.error(f"Failed to send admin notification: {e}")
 
 # ==========================================
-# --- COMMAND HANDLERS & INLINE KEYBOARDS ---
+# --- COMMAND HANDLERS & REPLY KEYBOARD ---
 # ==========================================
-def get_main_keyboard():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    btn_add = telebot.types.InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
-    btn_game = telebot.types.InlineKeyboardButton("🎮 Play Mini-Game", callback_data="btn_play_game")
-    btn_roast = telebot.types.InlineKeyboardButton("🔥 Roast Me", callback_data="btn_roast_me")
-    btn_joke = telebot.types.InlineKeyboardButton("😂 Tell a Joke", callback_data="btn_tell_joke")
-    markup.add(btn_add, btn_game, btn_roast, btn_joke)
+def get_reply_keyboard():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn_game = telebot.types.KeyboardButton("🎮 Play Mini-Game")
+    btn_roast = telebot.types.KeyboardButton("🔥 Roast Me")
+    btn_joke = telebot.types.KeyboardButton("😂 Tell a Joke")
+    btn_shayari = telebot.types.KeyboardButton("✨ Sunao Shayari")
+    markup.add(btn_game, btn_roast, btn_joke, btn_shayari)
     return markup
 
 @bot.message_handler(commands=["start"])
@@ -324,11 +322,11 @@ def cmd_start(message):
 
     welcome_text = (
         f"Hlo {name} ji! ✨ Main **Ava** hoon. Is waqt `{t_ctx['time_string']}` ho raha hai aur ek pyaari si `{t_ctx['part_of_day']}` hai! 😊\n\n"
-        "Main ek chill companion hoon jo roasts, jokes, motivation aur games ke sath hamesha ready rehti hoon!\n\n"
-        "Niche diye gaye buttons se feature try karo ya direct message bhejo! 💬"
+        "Main ek chill companion hoon jo roasts, jokes, shayari, aur games ke sath hamesha ready rehti hoon!\n\n"
+        "Niche diye gaye keyboard buttons se ya direct chat se baat karo! 💬"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
+    bot.reply_to(message, welcome_text, reply_markup=get_reply_keyboard())
 
 @bot.message_handler(commands=["add"])
 def cmd_add(message):
@@ -348,19 +346,19 @@ def cmd_game(message):
         "Maine 1 se 50 ke beech ek number soch liya hai. Tumhe guess karke chat me number bhejna hai!\n"
         "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
     )
-    bot.reply_to(message, game_text, reply_markup=get_main_keyboard())
+    bot.reply_to(message, game_text, reply_markup=get_reply_keyboard())
 
 @bot.message_handler(commands=["roast"])
 def cmd_roast(message):
     prompt = "Mujhe ekdum mast, funny aur savage roast do Hinglish mein, bina zyada bura lage par mazedaar ho."
     resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Roast Mode 🔥")
-    bot.reply_to(message, f"🔥 **Roast Session:**\n\n{resp}", reply_markup=get_main_keyboard())
+    bot.reply_to(message, f"🔥 **Roast Session:**\n\n{resp}", reply_markup=get_reply_keyboard())
 
 @bot.message_handler(commands=["joke"])
 def cmd_joke(message):
     prompt = "Ekdum mast aur hasane wala comedy joke sunao Hinglish mein."
     resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Comedy & Jokes 😂")
-    bot.reply_to(message, f"😂 **Joke Time:**\n\n{resp}", reply_markup=get_main_keyboard())
+    bot.reply_to(message, f"😂 **Joke Time:**\n\n{resp}", reply_markup=get_reply_keyboard())
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
@@ -375,7 +373,7 @@ def cmd_clear(message):
         logger.error(f"Clear memory error: {e}")
 
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨", reply_markup=get_main_keyboard())
+    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨", reply_markup=get_reply_keyboard())
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
@@ -387,7 +385,7 @@ def cmd_settings(message):
         "💬 **Vibe:** Chill, Savage & Adaptive\n"
         "🧠 **Memory:** Active & Secure"
     )
-    bot.reply_to(message, text, reply_markup=get_main_keyboard())
+    bot.reply_to(message, text, reply_markup=get_reply_keyboard())
 
 # ==========================================
 # --- ADMIN COMMANDS & BROADCAST SYSTEM ---
@@ -421,30 +419,7 @@ def handle_callbacks(call):
     user_id = call.from_user.id
     data = call.data
 
-    if data == "btn_play_game":
-        bot.answer_callback_query(call.id, "🎮 Starting Guess the Number!")
-        secret_number = random.randint(1, 50)
-        ACTIVE_GAMES[user_id] = {"target": secret_number, "attempts": 0}
-        game_text = (
-            "🎮 **Guess the Number Game!** 🎲\n\n"
-            "Maine 1 se 50 ke beech ek number soch liya hai. Tumhe guess karke chat me number bhejna hai!\n"
-            "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
-        )
-        bot.send_message(call.message.chat.id, game_text, reply_markup=get_main_keyboard())
-
-    elif data == "btn_roast_me":
-        bot.answer_callback_query(call.id, "🔥 Preparing roast...")
-        prompt = "Mujhe ekdum mast, funny aur savage roast do Hinglish mein."
-        resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Roast Mode 🔥")
-        bot.send_message(call.message.chat.id, f"🔥 **Roast Session:**\n\n{resp}", reply_markup=get_main_keyboard())
-
-    elif data == "btn_tell_joke":
-        bot.answer_callback_query(call.id, "😂 Brewing a joke...")
-        prompt = "Ekdum mast aur hasane wala comedy joke sunao Hinglish mein."
-        resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Comedy & Jokes 😂")
-        bot.send_message(call.message.chat.id, f"😂 **Joke Time:**\n\n{resp}", reply_markup=get_main_keyboard())
-
-    elif data == "admin_refresh":
+    if data == "admin_refresh":
         if user_id != ADMIN_ID:
             bot.answer_callback_query(call.id, "Access Denied!", show_alert=True)
             return
@@ -512,7 +487,7 @@ def process_voice_background(message):
         save_message(user_id, "assistant", reply)
         update_user_cache(user_id, "assistant", reply)
 
-        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Ava:**\n{reply}", reply_markup=get_main_keyboard())
+        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Ava:**\n{reply}")
 
         tts = gTTS(text=reply, lang="hi")
         tts.save(mp3_rep)
@@ -524,7 +499,7 @@ def process_voice_background(message):
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
-        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺", reply_markup=get_main_keyboard())
+        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
     finally:
         for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
             if os.path.exists(f):
@@ -541,10 +516,11 @@ def handle_text(message):
     try:
         user_id = message.from_user.id
         chat_id = message.chat.id
+        text_content = message.text
 
         # Handle Admin Broadcast Input
         if user_id == ADMIN_ID and ADMIN_BROADCAST_STATE.get(user_id):
-            if message.text and message.text.lower() == "/cancel":
+            if text_content and text_content.lower() == "/cancel":
                 ADMIN_BROADCAST_STATE[user_id] = False
                 bot.reply_to(message, "❌ Broadcast cancelled.")
                 return
@@ -568,8 +544,34 @@ def handle_text(message):
             bot.edit_message_text(f"📢 **Broadcast Completed!**\n\n✅ Successful: `{success_count}`\n❌ Failed: `{fail_count}`", status_msg.chat.id, status_msg.message_id)
             return
 
-        text_content = message.text
         if not text_content:
+            return
+
+        # Handle Reply Keyboard Button Actions
+        if text_content == "🎮 Play Mini-Game":
+            secret_number = random.randint(1, 50)
+            ACTIVE_GAMES[user_id] = {"target": secret_number, "attempts": 0}
+            game_text = (
+                "🎮 **Guess the Number Game!** 🎲\n\n"
+                "Maine 1 se 50 ke beech ek number soch liya hai. Tumhe guess karke chat me number bhejna hai!\n"
+                "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
+            )
+            bot.reply_to(message, game_text)
+            return
+        elif text_content == "🔥 Roast Me":
+            prompt = "Mujhe ekdum mast, funny aur savage roast do Hinglish mein."
+            resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Roast Mode 🔥")
+            bot.reply_to(message, f"🔥 **Roast Session:**\n\n{resp}")
+            return
+        elif text_content == "😂 Tell a Joke":
+            prompt = "Ekdum mast aur hasane wala comedy joke sunao Hinglish mein."
+            resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Comedy & Jokes 😂")
+            bot.reply_to(message, f"😂 **Joke Time:**\n\n{resp}")
+            return
+        elif text_content == "✨ Sunao Shayari":
+            prompt = "Ekdil ko choo lene wali pyaari si shayari sunao Hinglish mein."
+            resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Shayari & Poetry ✨")
+            bot.reply_to(message, f"✨ **Shayari Time:**\n\n{resp}")
             return
 
         # Check if user is currently playing the Mini-Game
@@ -582,13 +584,13 @@ def handle_text(message):
             if guess == target:
                 attempts = game["attempts"]
                 del ACTIVE_GAMES[chat_id]
-                bot.reply_to(message, f"🎉 **BINGO! Sahi jawab!** 🎉\nTumne sirf `{attempts}` attempts mein number (`{target}`) guess kar liya! Maza aa gaya 🤭✨", reply_markup=get_main_keyboard())
+                bot.reply_to(message, f"🎉 **BINGO! Sahi jawab!** 🎉\nTumne sirf `{attempts}` attempts mein number (`{target}`) guess kar liya! Maza aa gaya 🤭✨")
                 return
             elif guess < target:
-                bot.reply_to(message, "📈 Thoda **bada** number try karo! (Aage badho)", reply_markup=get_main_keyboard())
+                bot.reply_to(message, "📈 Thoda **bada** number try karo! (Aage badho)")
                 return
             else:
-                bot.reply_to(message, "📉 Thoda **chhota** number try karo! (Peeche aao)", reply_markup=get_main_keyboard())
+                bot.reply_to(message, "📉 Thoda **chhota** number try karo! (Peeche aao)")
                 return
 
         if message.message_id in processed_messages:
@@ -636,7 +638,7 @@ def handle_text(message):
         save_message(user_id, "assistant", response)
         update_user_cache(user_id, "assistant", response)
 
-        bot.reply_to(message, response, reply_markup=get_main_keyboard())
+        bot.reply_to(message, response)
 
     except Exception as e:
         logger.error(f"Critical execution error in text handler: {e}")
