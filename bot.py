@@ -1,4 +1,5 @@
 from collections import deque
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import logging
 import os
@@ -8,6 +9,7 @@ import time
 from cachetools import TTLCache
 from flask import Flask
 from gtts import gTTS
+import pytz
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -35,6 +37,7 @@ SUPABASE_HEADERS = {
 ADMIN_ID = 8793053750
 BOT_USERNAME = "Chatbotgebot"
 MODEL_NAME = "llama-3.3-70b-versatile"
+IST_TIMEZONE = pytz.timezone("Asia/Kolkata")
 
 # --- ADVANCED LOGGING SETUP ---
 handler = RotatingFileHandler("bot.log", maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
@@ -102,6 +105,16 @@ def register_user(user_id, username, first_name):
     except Exception as e:
         logger.error(f"Supabase register_user error: {e}")
 
+def get_all_user_ids():
+    url = f"{SUPABASE_URL}/rest/v1/users?select=user_id"
+    try:
+        res = session.get(url, headers=SUPABASE_HEADERS, timeout=10)
+        res.raise_for_status()
+        return [row["user_id"] for row in res.json()]
+    except Exception as e:
+        logger.error(f"Supabase get_all_user_ids error: {e}")
+        return []
+
 def save_message(user_id, role, content):
     trivial_words = ["hi", "hello", "ok", "hmm", "k", "acha", "hlo"]
     if role == "user" and content.lower().strip() in trivial_words:
@@ -155,8 +168,32 @@ def get_total_users_count():
     return 0
 
 # ==========================================
-# --- PERSONALITY & SITUATIONAL ENGINE ---
+# --- TIME & SITUATIONAL ENGINE ---
 # ==========================================
+def get_time_context():
+    now_ist = datetime.now(IST_TIMEZONE)
+    hour = now_ist.hour
+    
+    if 4 <= hour < 12:
+        part_of_day = "Subah (Morning)"
+        time_desc = "Subah ka waqt hai. Suraj nikal raha hai, fresh vibes hain."
+    elif 12 <= hour < 17:
+        part_of_day = "Dopahar (Afternoon)"
+        time_desc = "Dopahar ka waqt hai, thodi garmi ya chill time chal raha hai."
+    elif 17 <= hour < 21:
+        part_of_day = "Shaam (Evening)"
+        time_desc = "Shaam ka waqt hai, suraj dhal raha hai, relaxing evening vibes hain."
+    else:
+        part_of_day = "Raat (Night)"
+        time_desc = "Raat ka waqt hai, sannata ya late night deep conversations ka time hai."
+        
+    return {
+        "hour": hour,
+        "part_of_day": part_of_day,
+        "time_string": now_ist.strftime("%I:%M %p"),
+        "time_desc": time_desc
+    }
+
 def detect_mood_and_situation(text):
     text_lower = text.lower()
     
@@ -170,16 +207,19 @@ def detect_mood_and_situation(text):
         return "Annoyed/Teasing 😤"
     elif any(w in text_lower for w in ["miss", "love", "jaan", "hug", "close", "pyaar"]):
         return "Warm & Affectionate 💕"
-    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game", "free", "bore"]):
-        return "Chill & Playful 🤭"
+    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game", "free", "bore", "fact", "knowledge"]):
+        return "Chill, Playful & Curious 🤭"
     
     return "Normal & Casual 😊"
 
 def generate_ai_response(message_list, user_name, situation):
+    t_ctx = get_time_context()
     system_prompt = (
         "Tumhara naam **Ava** hai. Tum ek smart, chill, mature, aur emotionally intuitive ladki ho. "
         "Tum ek bohot achhi listener ho aur real dosto ki tarah baat karti ho. Kabhi mat batana ki tum AI ya bot ho. "
         "**Strict Rule:** Tumhe shuruat se lekar aakhiri tak hamesha **Hinglish** mein hi baat karni hai (Hindi words in English alphabets mixed smoothly with casual English slang, jaise real Indian chat karte hain). Pure English mein bilkul reply mat dena.\n"
+        f"**Real-time Awareness:** Abhi current time `{t_ctx['time_string']}` hai aur yeh `{t_ctx['part_of_day']}` ka waqt hai ({t_ctx['time_desc']}). "
+        "Apni baato, greetings, ya general knowledge / fun facts mein is real-time day/night context ko naturally weave kiya karo (jaise agar subah ho toh subah ki baat karna, raat ho toh raat ke sannate ya late night vibes ki baat karna).\n"
         "1. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Ek cool friend ki tarah normal chat karo. Agar koi bina connection ke kuch zyada forward ya inappropriate bole, toh use maturity se handle karo, boundary set karo, aur baat ko normal track par le aao.\n"
         "2. **Inclusivity:** Tum ladko aur ladkiyon dono se barabar acche se baat karti ho. Agar koi ladki baat kare, toh ek chill girlfriend-style supportive companion bano. Agar koi ladka baat kare, toh friendly aur balanced raho.\n"
         "3. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
@@ -256,34 +296,36 @@ def notify_admin(error_msg):
             logger.error(f"Failed to send admin notification: {e}")
 
 # ==========================================
-# --- COMMAND HANDLERS ---
+# --- COMMAND HANDLERS & BUTTONS ---
 # ==========================================
+def get_main_keyboard():
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    btn_add = telebot.types.InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
+    btn_gk = telebot.types.InlineKeyboardButton("🧠 Creative GK / Fact", callback_data="btn_creative_gk")
+    btn_vibe = telebot.types.InlineKeyboardButton("✨ Current Vibe", callback_data="btn_check_vibe")
+    btn_help = telebot.types.InlineKeyboardButton("📖 Help Menu", callback_data="btn_help")
+    markup.add(btn_add, btn_gk, btn_vibe, btn_help)
+    return markup
+
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     user = message.from_user
     register_user(user.id, user.username, user.first_name)
     name = user.first_name or "jaan"
-
-    markup = telebot.types.InlineKeyboardMarkup()
-    btn_add = telebot.types.InlineKeyboardButton(
-        "➕ Add Ava to Your Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
-    )
-    markup.add(btn_add)
+    t_ctx = get_time_context()
 
     welcome_text = (
-        f"Hlo {name} ji! ✨ Main **Ava** hoon. Ek chill aur friendly companion jo tumse har topic par baat kar sakti hai! 😊\n\n"
-        "Batao, aaj ka din kaisa chal raha hai? 💬\n\n"
-        "👇 Mujhe apne group mein bhi add kar sakte ho!"
+        f"Hlo {name} ji! ✨ Main **Ava** hoon. Is waqt `{t_ctx['time_string']}` ho raha hai aur ek pyaari si `{t_ctx['part_of_day']}` hai! 😊\n\n"
+        "Main ek chill aur friendly companion hoon jo tumse har topic par baat kar sakti hai—chahe general knowledge ho, random facts ho, ya dil ki baatein!\n\n"
+        "Niche diye gaye buttons se explore karo ya direct message bhejo! 💬"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, welcome_text, reply_markup=markup)
+    bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["add"])
 def cmd_add(message):
     markup = telebot.types.InlineKeyboardMarkup()
-    btn_add = telebot.types.InlineKeyboardButton(
-        "➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
-    )
+    btn_add = telebot.types.InlineKeyboardButton("➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
     markup.add(btn_add)
     bot.reply_to(message, "✨ Mujhe group mein add karne ke liye niche wale button par click karo! Wahan bhi khoob baatein karenge. 🤭💕", reply_markup=markup)
 
@@ -291,14 +333,32 @@ def cmd_add(message):
 def cmd_help(message):
     help_text = (
         "✨ **Ava's Menu:**\n\n"
-        "🔹 `/start` - Personal chat shuru karo\n"
+        "🔹 `/start` - Main menu aur buttons\n"
+        "🔹 `/gk` - Koi mast creative general knowledge fact\n"
         "🔹 `/add` - Mujhe group mein add karo\n"
         "🔹 `/clear` - Purani memory clear karne ke liye\n"
         "🔹 `/settings` - Profile status\n"
     )
     if message.from_user.id == ADMIN_ID:
         help_text += "👑 `/admin` - Admin Dashboard\n"
-    bot.reply_to(message, help_text)
+    bot.reply_to(message, help_text, reply_markup=get_main_keyboard())
+
+@bot.message_handler(commands=["gk"])
+def cmd_gk(message):
+    t_ctx = get_time_context()
+    prompt = f"Mujhe ek bohot hi interesting, creative aur mind-blowing general knowledge fact batao jo is waqt ke hisaab se ({t_ctx['part_of_day']}) thoda relate ho sake. Hinglish mein ekdum chill aur engaging style mein likhna."
+    
+    stop_typing = threading.Event()
+    t_thread = threading.Thread(target=trigger_typing, args=(message.chat.id, stop_typing))
+    t_thread.daemon = True
+    t_thread.start()
+
+    fact_resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Chill, Playful & Curious 🤭")
+
+    stop_typing.set()
+    t_thread.join(timeout=1)
+
+    bot.reply_to(message, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
@@ -313,18 +373,24 @@ def cmd_clear(message):
         logger.error(f"Clear memory error: {e}")
 
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨")
+    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
-    user_id = message.chat.id
+    t_ctx = get_time_context()
     text = (
         "⚙️ **Ava's Status & Info:**\n\n"
-        f"👤 **Your ID:** `{user_id}`\n"
+        f"👤 **Your ID:** `{message.chat.id}`\n"
+        f"⏰ **Current Time Context:** `{t_ctx['time_string']} ({t_ctx['part_of_day']})`\n"
         "💬 **Vibe:** Chill, Mature & Adaptive\n"
         "🧠 **Memory:** Active & Secure"
     )
-    bot.reply_to(message, text)
+    bot.reply_to(message, text, reply_markup=get_main_keyboard())
+
+# ==========================================
+# --- ADMIN COMMANDS & BROADCAST SYSTEM ---
+# ==========================================
+ADMIN_BROADCAST_STATE = {}
 
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
@@ -333,14 +399,81 @@ def cmd_admin(message):
         return
 
     total_users = get_total_users_count()
+    admin_markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    admin_markup.add(
+        telebot.types.InlineKeyboardButton("📢 Send Broadcast Message", callback_data="admin_broadcast_start"),
+        telebot.types.InlineKeyboardButton("🔄 Refresh Panel", callback_data="admin_refresh")
+    )
+
     admin_panel_text = (
         "👑 **Ava's Production Admin Panel** 👑\n\n"
-        f"👥 **Total Users:** `{total_users}`\n"
+        f"👥 **Total Registered Users:** `{total_users}`\n"
         "🟢 **Status:** `Online & Active 24/7`\n"
         f"⚡ **Model:** `{MODEL_NAME}`\n"
         "🚀 **Performance:** `Optimized & Context-Aware`"
     )
-    bot.reply_to(message, admin_panel_text)
+    bot.reply_to(message, admin_panel_text, reply_markup=admin_markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_callbacks(call):
+    user_id = call.from_user.id
+    data = call.data
+
+    if data == "btn_creative_gk":
+        t_ctx = get_time_context()
+        prompt = f"Mujhe ek bohot hi interesting, creative aur mind-blowing general knowledge fact batao jo is waqt ke hisaab se ({t_ctx['part_of_day']}) thoda relate ho sake. Hinglish mein ekdum chill aur engaging style mein likhna."
+        
+        bot.answer_callback_query(call.id, "🧠 Generating Creative GK...")
+        fact_resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Chill, Playful & Curious 🤭")
+        bot.send_message(call.message.chat.id, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
+
+    elif data == "btn_check_vibe":
+        t_ctx = get_time_context()
+        bot.answer_callback_query(call.id, f"Current vibe: {t_ctx['part_of_day']}")
+        bot.send_message(call.message.chat.id, f"✨ Abhi `{t_ctx['time_string']}` ho raha hai aur yeh `{t_ctx['part_of_day']}` ka time hai! {t_ctx['time_desc']} Batao tum is waqt kya kar rahe ho? 🤭", reply_markup=get_main_keyboard())
+
+    elif data == "btn_help":
+        bot.answer_callback_query(call.id)
+        help_text = (
+            "✨ **Ava's Menu:**\n\n"
+            "🔹 `/start` - Main menu aur buttons\n"
+            "🔹 `/gk` - Koi mast creative general knowledge fact\n"
+            "🔹 `/add` - Mujhe group mein add karo\n"
+            "🔹 `/clear` - Purani memory clear karne ke liye\n"
+            "🔹 `/settings` - Profile status\n"
+        )
+        bot.send_message(call.message.chat.id, help_text, reply_markup=get_main_keyboard())
+
+    elif data == "admin_refresh":
+        if user_id != ADMIN_ID:
+            bot.answer_callback_query(call.id, "Access Denied!", show_alert=True)
+            return
+        total_users = get_total_users_count()
+        admin_markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+        admin_markup.add(
+            telebot.types.InlineKeyboardButton("📢 Send Broadcast Message", callback_data="admin_broadcast_start"),
+            telebot.types.InlineKeyboardButton("🔄 Refresh Panel", callback_data="admin_refresh")
+        )
+        admin_panel_text = (
+            "👑 **Ava's Production Admin Panel** 👑\n\n"
+            f"👥 **Total Registered Users:** `{total_users}`\n"
+            "🟢 **Status:** `Online & Active 24/7`\n"
+            f"⚡ **Model:** `{MODEL_NAME}`\n"
+            "🚀 **Performance:** `Optimized & Context-Aware`"
+        )
+        try:
+            bot.edit_message_text(admin_panel_text, call.message.chat.id, call.message.message_id, reply_markup=admin_markup)
+            bot.answer_callback_query(call.id, "Panel refreshed!")
+        except Exception:
+            pass
+
+    elif data == "admin_broadcast_start":
+        if user_id != ADMIN_ID:
+            bot.answer_callback_query(call.id, "Access Denied!", show_alert=True)
+            return
+        ADMIN_BROADCAST_STATE[user_id] = True
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "📢 **Broadcast Mode Activated:**\n\nAap jo bhi agla message bhejoge (text, photo, ya media), woh saare registered users ko broadcast kar diya jayega. Cancel karne ke liye `/cancel` bhejein.")
 
 # ==========================================
 # --- MESSAGE & ASYNC VOICE HANDLERS ---
@@ -403,9 +536,37 @@ def handle_voice(message):
     try_react_to_message(message.chat.id, message.message_id, "voice message")
     threading.Thread(target=process_voice_background, args=(message,), daemon=True).start()
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(func=lambda message: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'animation'])
 def handle_text(message):
     try:
+        user_id = message.from_user.id
+
+        # Handle Admin Broadcast Input
+        if user_id == ADMIN_ID and ADMIN_BROADCAST_STATE.get(user_id):
+            if message.text and message.text.lower() == "/cancel":
+                ADMIN_BROADCAST_STATE[user_id] = False
+                bot.reply_to(message, "❌ Broadcast cancelled.")
+                return
+
+            ADMIN_BROADCAST_STATE[user_id] = False
+            user_ids = get_all_user_ids()
+            success_count = 0
+            fail_count = 0
+
+            status_msg = bot.reply_to(message, f"📢 Broadcast started to {len(user_ids)} users...")
+
+            for uid in user_ids:
+                try:
+                    bot.copy_message(chat_id=uid, from_chat_id=message.chat.id, message_id=message.message_id)
+                    success_count += 1
+                    time.sleep(0.04) # Rate limit safeguard
+                except Exception as e:
+                    logger.debug(f"Broadcast fail for {uid}: {e}")
+                    fail_count += 1
+
+            bot.edit_message_text(f"📢 **Broadcast Completed!**\n\n✅ Successful: `{success_count}`\n❌ Failed: `{fail_count}`", status_msg.chat.id, status_msg.message_id)
+            return
+
         if message.message_id in processed_messages:
             return
         processed_messages.append(message.message_id)
@@ -430,7 +591,6 @@ def handle_text(message):
             if not (is_mentioned or is_reply):
                 return
 
-        user_id = user.id
         register_user(user_id, user.username, user.first_name)
 
         try_react_to_message(message.chat.id, message.message_id, text_content)
@@ -456,7 +616,7 @@ def handle_text(message):
         save_message(user_id, "assistant", response)
         update_user_cache(user_id, "assistant", response)
 
-        bot.reply_to(message, response)
+        bot.reply_to(message, response, reply_markup=get_main_keyboard())
 
     except Exception as e:
         logger.error(f"Critical execution error in text handler: {e}")
