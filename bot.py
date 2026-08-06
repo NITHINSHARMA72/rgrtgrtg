@@ -25,7 +25,7 @@ GROQ_API_KEY = "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"
 
 # --- SUPABASE CONFIGURATION ---
 SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Ikwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -297,7 +297,7 @@ def notify_admin(error_msg):
             logger.error(f"Failed to send admin notification: {e}")
 
 # ==========================================
-# --- COMMAND HANDLERS & BUTTONS ---
+# --- COMMAND HANDLERS & INLINE KEYBOARDS ---
 # ==========================================
 def get_main_keyboard():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
@@ -540,7 +540,7 @@ def process_voice_background(message):
         save_message(user_id, "assistant", reply)
         update_user_cache(user_id, "assistant", reply)
 
-        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Ava:**\n{reply}")
+        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Ava:**\n{reply}", reply_markup=get_main_keyboard())
 
         tts = gTTS(text=reply, lang="hi")
         tts.save(mp3_rep)
@@ -552,7 +552,7 @@ def process_voice_background(message):
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
-        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
+        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺", reply_markup=get_main_keyboard())
     finally:
         for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
             if os.path.exists(f):
@@ -613,10 +613,10 @@ def handle_text(message):
                 bot.reply_to(message, f"🎉 **BINGO! Sahi jawab!** 🎉\nTumne sirf `{attempts}` attempts mein number (`{target}`) guess kar liya! Maza aa gaya 🤭✨", reply_markup=get_main_keyboard())
                 return
             elif guess < target:
-                bot.reply_to(message, "📈 Thoda **bada** number try karo! (Aage badho)")
+                bot.reply_to(message, "📈 Thoda **bada** number try karo! (Aage badho)", reply_markup=get_main_keyboard())
                 return
             else:
-                bot.reply_to(message, "📉 Thoda **chhota** number try karo! (Peeche aao)")
+                bot.reply_to(message, "📉 Thoda **chhota** number try karo! (Peeche aao)", reply_markup=get_main_keyboard())
                 return
 
         if message.message_id in processed_messages:
