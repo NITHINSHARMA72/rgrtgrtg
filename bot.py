@@ -25,7 +25,7 @@ GROQ_API_KEY = "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"
 
 # --- SUPABASE CONFIGURATION ---
 SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Ikwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -202,14 +202,20 @@ def detect_mood_and_situation(text):
     if any(w in text_lower for w in horny_keywords):
         return "Inappropriate/Forward 🛑"
         
-    if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan", "dukhi"]):
-        return "Sad & Needs Support 🥺"
+    if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan", "dukhi", "demotivated", "haar gaya"]):
+        return "Sad & Needs Motivation 💪"
     elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate", "dimag kharab"]):
-        return "Annoyed/Teasing 😤"
+        return "Annoyed/Teasing 🔥 (Roast Mode)"
+    elif any(w in text_lower for w in ["roast me", "roast", "izzat", "bezzati"]):
+        return "Roast Mode 🔥"
+    elif any(w in text_lower for w in ["joke", "hasao", "comedy", "hasya"]):
+        return "Comedy & Jokes 😂"
+    elif any(w in text_lower for w in ["shayari", "poetry", "sher"]):
+        return "Shayari & Poetry ✨"
     elif any(w in text_lower for w in ["miss", "love", "jaan", "hug", "close", "pyaar"]):
         return "Warm & Affectionate 💕"
-    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game", "free", "bore", "fact", "knowledge"]):
-        return "Chill, Playful & Curious 🤭"
+    elif any(w in text_lower for w in ["bored", "kya kar rahi", "game", "free", "bore"]):
+        return "Chill & Playful 🤭"
     
     return "Normal & Casual 😊"
 
@@ -220,10 +226,11 @@ def generate_ai_response(message_list, user_name, situation):
         "Tum ek bohot achhi listener ho aur real dosto ki tarah baat karti ho. Kabhi mat batana ki tum AI ya bot ho. "
         "**Strict Rule:** Tumhe shuruat se lekar aakhiri tak hamesha **Hinglish** mein hi baat karni hai (Hindi words in English alphabets mixed smoothly with casual English slang, jaise real Indian chat karte hain). Pure English mein bilkul reply mat dena.\n"
         f"**Real-time Awareness:** Abhi current time `{t_ctx['time_string']}` hai aur yeh `{t_ctx['part_of_day']}` ka waqt hai ({t_ctx['time_desc']}). "
-        "Apni baato, greetings, ya general knowledge / fun facts mein is real-time day/night context ko naturally weave kiya karo (jaise agar subah ho toh subah ki baat karna, raat ho toh raat ke sannate ya late night vibes ki baat karna).\n"
-        "1. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Ek cool friend ki tarah normal chat karo. Agar koi bina connection ke kuch zyada forward ya inappropriate bole, toh use maturity se handle karo, boundary set karo, aur baat ko normal track par le aao.\n"
-        "2. **Inclusivity:** Tum ladko aur ladkiyon dono se barabar acche se baat karti ho. Agar koi ladki baat kare, toh ek chill girlfriend-style supportive companion bano. Agar koi ladka baat kare, toh friendly aur balanced raho.\n"
-        "3. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
+        "Apni baato aur greetings mein is real-time day/night context ko naturally weave kiya karo.\n"
+        "1. **Situational Features (Roast & Motivation):** Agar user roast maangne ko bole ya teases kare, toh ekdum witty aur savage roast do (par dosti ke daayre mein). Agar user sad ya demotivated ho, toh ekdum powerful motivation aur emotional support do.\n"
+        "2. **Jokes & Shayari:** Jab bhi mazak ya shayari ki baat ho, toh ekdum zabardast aur funny jokes ya deep shayari sunao.\n"
+        "3. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Boundary set karna achhe se jaanti ho.\n"
+        "4. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
         f"- Current User Situation/Vibe: {situation}"
     )
 
@@ -236,7 +243,7 @@ def generate_ai_response(message_list, user_name, situation):
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
-        "temperature": 0.85,
+        "temperature": 0.9,
         "max_tokens": 250,
     }
     headers = {
@@ -302,11 +309,10 @@ def notify_admin(error_msg):
 def get_main_keyboard():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     btn_add = telebot.types.InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
-    btn_gk = telebot.types.InlineKeyboardButton("🧠 Creative GK / Fact", callback_data="btn_creative_gk")
     btn_game = telebot.types.InlineKeyboardButton("🎮 Play Mini-Game", callback_data="btn_play_game")
-    btn_vibe = telebot.types.InlineKeyboardButton("✨ Current Vibe", callback_data="btn_check_vibe")
-    btn_help = telebot.types.InlineKeyboardButton("📖 Help Menu", callback_data="btn_help")
-    markup.add(btn_add, btn_gk, btn_game, btn_vibe, btn_help)
+    btn_roast = telebot.types.InlineKeyboardButton("🔥 Roast Me", callback_data="btn_roast_me")
+    btn_joke = telebot.types.InlineKeyboardButton("😂 Tell a Joke", callback_data="btn_tell_joke")
+    markup.add(btn_add, btn_game, btn_roast, btn_joke)
     return markup
 
 @bot.message_handler(commands=["start"])
@@ -318,8 +324,8 @@ def cmd_start(message):
 
     welcome_text = (
         f"Hlo {name} ji! ✨ Main **Ava** hoon. Is waqt `{t_ctx['time_string']}` ho raha hai aur ek pyaari si `{t_ctx['part_of_day']}` hai! 😊\n\n"
-        "Main ek chill aur friendly companion hoon jo tumse har topic par baat kar sakti hai—chahe general knowledge ho, games ho, ya dil ki baatein!\n\n"
-        "Niche diye gaye buttons se explore karo ya direct message bhejo! 💬"
+        "Main ek chill companion hoon jo roasts, jokes, motivation aur games ke sath hamesha ready rehti hoon!\n\n"
+        "Niche diye gaye buttons se feature try karo ya direct message bhejo! 💬"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
     bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
@@ -330,38 +336,6 @@ def cmd_add(message):
     btn_add = telebot.types.InlineKeyboardButton("➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true")
     markup.add(btn_add)
     bot.reply_to(message, "✨ Mujhe group mein add karne ke liye niche wale button par click karo! Wahan bhi khoob baatein karenge. 🤭💕", reply_markup=markup)
-
-@bot.message_handler(commands=["help"])
-def cmd_help(message):
-    help_text = (
-        "✨ **Ava's Menu:**\n\n"
-        "🔹 `/start` - Main menu aur buttons\n"
-        "🔹 `/gk` - Koi mast creative general knowledge fact\n"
-        "🔹 `/game` - Guess the Number mini-game khelo\n"
-        "🔹 `/add` - Mujhe group mein add karo\n"
-        "🔹 `/clear` - Purani memory clear karne ke liye\n"
-        "🔹 `/settings` - Profile status\n"
-    )
-    if message.from_user.id == ADMIN_ID:
-        help_text += "👑 `/admin` - Admin Dashboard\n"
-    bot.reply_to(message, help_text, reply_markup=get_main_keyboard())
-
-@bot.message_handler(commands=["gk"])
-def cmd_gk(message):
-    t_ctx = get_time_context()
-    prompt = f"Mujhe ek bohot hi interesting, creative aur mind-blowing general knowledge fact batao jo is waqt ke hisaab se ({t_ctx['part_of_day']}) thoda relate ho sake. Hinglish mein ekdum chill aur engaging style mein likhna."
-    
-    stop_typing = threading.Event()
-    t_thread = threading.Thread(target=trigger_typing, args=(message.chat.id, stop_typing))
-    t_thread.daemon = True
-    t_thread.start()
-
-    fact_resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Chill, Playful & Curious 🤭")
-
-    stop_typing.set()
-    t_thread.join(timeout=1)
-
-    bot.reply_to(message, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["game"])
 def cmd_game(message):
@@ -375,6 +349,18 @@ def cmd_game(message):
         "Dekhte hain kitni koshish mein tum sahi guess karte ho. 🤭 Shuru ho jao!"
     )
     bot.reply_to(message, game_text, reply_markup=get_main_keyboard())
+
+@bot.message_handler(commands=["roast"])
+def cmd_roast(message):
+    prompt = "Mujhe ekdum mast, funny aur savage roast do Hinglish mein, bina zyada bura lage par mazedaar ho."
+    resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Roast Mode 🔥")
+    bot.reply_to(message, f"🔥 **Roast Session:**\n\n{resp}", reply_markup=get_main_keyboard())
+
+@bot.message_handler(commands=["joke"])
+def cmd_joke(message):
+    prompt = "Ekdum mast aur hasane wala comedy joke sunao Hinglish mein."
+    resp = generate_ai_response([{"role": "user", "content": prompt}], message.from_user.first_name or "Dost", "Comedy & Jokes 😂")
+    bot.reply_to(message, f"😂 **Joke Time:**\n\n{resp}", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
@@ -398,7 +384,7 @@ def cmd_settings(message):
         "⚙️ **Ava's Status & Info:**\n\n"
         f"👤 **Your ID:** `{message.chat.id}`\n"
         f"⏰ **Current Time Context:** `{t_ctx['time_string']} ({t_ctx['part_of_day']})`\n"
-        "💬 **Vibe:** Chill, Mature & Adaptive\n"
+        "💬 **Vibe:** Chill, Savage & Adaptive\n"
         "🧠 **Memory:** Active & Secure"
     )
     bot.reply_to(message, text, reply_markup=get_main_keyboard())
@@ -435,15 +421,7 @@ def handle_callbacks(call):
     user_id = call.from_user.id
     data = call.data
 
-    if data == "btn_creative_gk":
-        t_ctx = get_time_context()
-        prompt = f"Mujhe ek bohot hi interesting, creative aur mind-blowing general knowledge fact batao jo is waqt ke hisaab se ({t_ctx['part_of_day']}) thoda relate ho sake. Hinglish mein ekdum chill aur engaging style mein likhna."
-        
-        bot.answer_callback_query(call.id, "🧠 Generating Creative GK...")
-        fact_resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Chill, Playful & Curious 🤭")
-        bot.send_message(call.message.chat.id, f"🧠 **Creative GK Time ({t_ctx['part_of_day']}):**\n\n{fact_resp}", reply_markup=get_main_keyboard())
-
-    elif data == "btn_play_game":
+    if data == "btn_play_game":
         bot.answer_callback_query(call.id, "🎮 Starting Guess the Number!")
         secret_number = random.randint(1, 50)
         ACTIVE_GAMES[user_id] = {"target": secret_number, "attempts": 0}
@@ -454,23 +432,17 @@ def handle_callbacks(call):
         )
         bot.send_message(call.message.chat.id, game_text, reply_markup=get_main_keyboard())
 
-    elif data == "btn_check_vibe":
-        t_ctx = get_time_context()
-        bot.answer_callback_query(call.id, f"Current vibe: {t_ctx['part_of_day']}")
-        bot.send_message(call.message.chat.id, f"✨ Abhi `{t_ctx['time_string']}` ho raha hai aur yeh `{t_ctx['part_of_day']}` ka time hai! {t_ctx['time_desc']} Batao tum is waqt kya kar rahe ho? 🤭", reply_markup=get_main_keyboard())
+    elif data == "btn_roast_me":
+        bot.answer_callback_query(call.id, "🔥 Preparing roast...")
+        prompt = "Mujhe ekdum mast, funny aur savage roast do Hinglish mein."
+        resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Roast Mode 🔥")
+        bot.send_message(call.message.chat.id, f"🔥 **Roast Session:**\n\n{resp}", reply_markup=get_main_keyboard())
 
-    elif data == "btn_help":
-        bot.answer_callback_query(call.id)
-        help_text = (
-            "✨ **Ava's Menu:**\n\n"
-            "🔹 `/start` - Main menu aur buttons\n"
-            "🔹 `/gk` - Koi mast creative general knowledge fact\n"
-            "🔹 `/game` - Guess the Number mini-game khelo\n"
-            "🔹 `/add` - Mujhe group mein add karo\n"
-            "🔹 `/clear` - Purani memory clear karne ke liye\n"
-            "🔹 `/settings` - Profile status\n"
-        )
-        bot.send_message(call.message.chat.id, help_text, reply_markup=get_main_keyboard())
+    elif data == "btn_tell_joke":
+        bot.answer_callback_query(call.id, "😂 Brewing a joke...")
+        prompt = "Ekdum mast aur hasane wala comedy joke sunao Hinglish mein."
+        resp = generate_ai_response([{"role": "user", "content": prompt}], call.from_user.first_name or "Dost", "Comedy & Jokes 😂")
+        bot.send_message(call.message.chat.id, f"😂 **Joke Time:**\n\n{resp}", reply_markup=get_main_keyboard())
 
     elif data == "admin_refresh":
         if user_id != ADMIN_ID:
