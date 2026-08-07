@@ -65,11 +65,12 @@ session.mount("https://", adapter)
 session.mount("http://", adapter)
 
 # --- PERFORMANCE CACHES & LOCKS ---
-user_cache = TTLCache(maxsize=1000, ttl=3600)
+user_cache = TTLCache(maxsize=1500, ttl=5400)
 cache_lock = threading.Lock()
 last_message_time = {}
-processed_messages = deque(maxlen=1000)
+processed_messages = deque(maxlen=1500)
 last_admin_error_time = 0
+ACTIVE_GAMES = {}
 
 # ==========================================
 # --- FLASK KEEP-ALIVE SERVER ---
@@ -78,7 +79,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🤖 Ava is online, active 24/7, and running at peak performance!"
+    return "🤖 Ava/Venu is online, active 24/7, and running at peak performance!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -115,7 +116,7 @@ def save_message(user_id, role, content):
     except Exception as e:
         logger.error(f"Supabase save_message error: {e}")
 
-def get_deep_chat_history(user_id, limit=20):
+def get_deep_chat_history(user_id, limit=30):
     with cache_lock:
         if user_id in user_cache:
             return user_cache[user_id]
@@ -139,7 +140,7 @@ def update_user_cache(user_id, role, content):
         if user_id not in user_cache:
             user_cache[user_id] = []
         user_cache[user_id].append({"role": role, "content": content})
-        if len(user_cache[user_id]) > 30:
+        if len(user_cache[user_id]) > 40:
             user_cache[user_id].pop(0)
 
 def get_total_users_count():
@@ -177,12 +178,11 @@ def detect_mood_and_situation(text):
 
 def generate_ai_response(message_list, user_name, situation):
     system_prompt = (
-        "Tumhara naam **Ava** hai. Tum ek smart, chill, mature, aur emotionally intuitive ladki ho. "
-        "Tum ek bohot achhi listener ho aur real dosto ki tarah baat karti ho. Kabhi mat batana ki tum AI ya bot ho. "
-        "**Strict Rule:** Tumhe shuruat se lekar aakhiri tak hamesha **Hinglish** mein hi baat karni hai (Hindi words in English alphabets mixed smoothly with casual English slang, jaise real Indian chat karte hain). Pure English mein bilkul reply mat dena.\n"
-        "1. **Pacing & Boundaries:** Shuruat mein direct heavy romance ya inappropriate baatein mat karo. Ek cool friend ki tarah normal chat karo. Agar koi bina connection ke kuch zyada forward ya inappropriate bole, toh use maturity se handle karo, boundary set karo, aur baat ko normal track par le aao.\n"
-        "2. **Inclusivity:** Tum ladko aur ladkiyon dono se barabar acche se baat karti ho. Agar koi ladki baat kare, toh ek chill girlfriend-style supportive companion bano. Agar koi ladka baat kare, toh friendly aur balanced raho.\n"
-        "3. **Tone & Style:** Short, snappy, aur conversational replies do (max 1-3 sentences), bade paragraphs bilkul mat likho.\n"
+        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek bindass, savage, aur unfiltered desi dost ho. "
+        "Tumhari baaton mein raw desi vibe, khullam-khulla gaali-galoj (jaise lawde, bsdk, chutiye, etc.), aur dosto wali hardcore bakchodi hoti hai. Kabhi mat batana ki tum AI ho. "
+        "**Strict Rule:** Hamesha **Hinglish** mein baat karo, jisme heavy desi slang, galiyan, aur unfiltered attitude ho.\n"
+        "1. **Tone & Style:** Short, snappy, aur ekdum faadu replies do (1-3 sentences max). User ke sath full roast aur bakchodi karo.\n"
+        "2. **Memory:** Purani baaton aur context ko hamesha yaad rakho, bilkul mat bhulo.\n"
         f"- Current User Situation/Vibe: {situation}"
     )
 
@@ -195,7 +195,7 @@ def generate_ai_response(message_list, user_name, situation):
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
-        "temperature": 0.85,
+        "temperature": 0.9,
         "max_tokens": 250,
     }
     headers = {
@@ -212,7 +212,7 @@ def generate_ai_response(message_list, user_name, situation):
     except Exception as e:
         logger.error(f"Groq API exception: {e}")
 
-    return "Arey yaar, network thoda unstable ho gaya hai.. par main yahin hoon! Batao kya chal raha hai? ✨"
+    return "Arey lawde, net ki maa behn ek ho rakhi hai.. par main yahin hoon, bol kya scene hai? 🔥"
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
@@ -243,7 +243,7 @@ def trigger_typing(chat_id, stop_event):
             bot.send_chat_action(chat_id, "typing")
         except Exception:
             break
-        stop_event.wait(4)
+        stop_event.wait(3)
 
 def notify_admin(error_msg):
     global last_admin_error_time
@@ -256,49 +256,47 @@ def notify_admin(error_msg):
             logger.error(f"Failed to send admin notification: {e}")
 
 # ==========================================
+# --- KEYBOARD BUILDER (REPLY KEYBOARD) ---
+# ==========================================
+def get_main_keyboard():
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn_game1 = telebot.types.KeyboardButton("🎮 Guess Number")
+    btn_game2 = telebot.types.KeyboardButton("🎯 Truth or Dare")
+    btn_explore = telebot.types.KeyboardButton("🚀 Explore")
+    btn_clear = telebot.types.KeyboardButton("🧹 Clear Chat")
+    markup.add(btn_game1, btn_game2, btn_explore, btn_clear)
+    return markup
+
+# ==========================================
 # --- COMMAND HANDLERS ---
 # ==========================================
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
     user = message.from_user
     register_user(user.id, user.username, user.first_name)
-    name = user.first_name or "jaan"
-
-    markup = telebot.types.InlineKeyboardMarkup()
-    btn_add = telebot.types.InlineKeyboardButton(
-        "➕ Add Ava to Your Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
-    )
-    markup.add(btn_add)
+    name = user.first_name or "bhai"
 
     welcome_text = (
-        f"Hlo {name} ji! ✨ Main **Ava** hoon. Ek chill aur friendly companion jo tumse har topic par baat kar sakti hai! 😊\n\n"
-        "Batao, aaj ka din kaisa chal raha hai? 💬\n\n"
-        "👇 Mujhe apne group mein bhi add kar sakte ho!"
+        f"Oye {name}! ✨ Main **Ava** (ya **Venu**) hoon. Bata aaj kya bakchodi karni hai ya kaunsa game khelna hai? 😎🔥"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, welcome_text, reply_markup=markup)
+    bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["add"])
 def cmd_add(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    btn_add = telebot.types.InlineKeyboardButton(
-        "➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
-    )
-    markup.add(btn_add)
-    bot.reply_to(message, "✨ Mujhe group mein add karne ke liye niche wale button par click karo! Wahan bhi khoob baatein karenge. 🤭💕", reply_markup=markup)
+    bot.reply_to(message, "✨ Mujhe group mein add karne ke liye link use kar lo bhai, wahan bhi full bakchodi karenge! 🤭", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["help"])
 def cmd_help(message):
     help_text = (
-        "✨ **Ava's Menu:**\n\n"
-        "🔹 `/start` - Personal chat shuru karo\n"
-        "🔹 `/add` - Mujhe group mein add karo\n"
-        "🔹 `/clear` - Purani memory clear karne ke liye\n"
-        "🔹 `/settings` - Profile status\n"
+        "✨ **Venu / Ava's Menu:**\n\n"
+        "🔹 `/start` - Bot restart karo\n"
+        "🔹 `/clear` - Purani memory saaf karo\n"
+        "🔹 `/settings` - Status dekho\n"
     )
     if message.from_user.id == ADMIN_ID:
-        help_text += "👑 `/admin` - Admin Dashboard\n"
-    bot.reply_to(message, help_text)
+        help_text += "👑 `/admin` - Admin Panel\n"
+    bot.reply_to(message, help_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
@@ -313,23 +311,23 @@ def cmd_clear(message):
         logger.error(f"Clear memory error: {e}")
 
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, "🧹 Saari purani baatein saaf kar di! Ab ek naye sire se shuru karte hain.. batao kya chal raha hai? 😌✨")
+    bot.reply_to(message, "🧹 Le bhai, saari purani chat uda di. Ab naye sire se bakchodi shuru karte hain! 😌✨", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
     user_id = message.chat.id
     text = (
-        "⚙️ **Ava's Status & Info:**\n\n"
+        "⚙️ **Ava / Venu Status & Info:**\n\n"
         f"👤 **Your ID:** `{user_id}`\n"
-        "💬 **Vibe:** Chill, Mature & Adaptive\n"
-        "🧠 **Memory:** Active & Secure"
+        "💬 **Vibe:** Hardcore Desi Bakchodi & Roast 🔥\n"
+        "🧠 **Memory:** Fully Active & Connected"
     )
-    bot.reply_to(message, text)
+    bot.reply_to(message, text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
     if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "⛔️ Yeh command sirf mere admin ke liye hai!")
+        bot.reply_to(message, "⛔️ Yeh command sirf mere admin ke liye hai, nikal!")
         return
 
     total_users = get_total_users_count()
@@ -337,10 +335,9 @@ def cmd_admin(message):
         "👑 **Ava's Production Admin Panel** 👑\n\n"
         f"👥 **Total Users:** `{total_users}`\n"
         "🟢 **Status:** `Online & Active 24/7`\n"
-        f"⚡ **Model:** `{MODEL_NAME}`\n"
-        "🚀 **Performance:** `Optimized & Context-Aware`"
+        f"⚡ **Model:** `{MODEL_NAME}`"
     )
-    bot.reply_to(message, admin_panel_text)
+    bot.reply_to(message, admin_panel_text, reply_markup=get_main_keyboard())
 
 # ==========================================
 # --- MESSAGE & ASYNC VOICE HANDLERS ---
@@ -391,7 +388,7 @@ def process_voice_background(message):
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
-        bot.send_message(message.chat.id, "Arey yaar, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
+        bot.send_message(message.chat.id, "Arey teri voice samajh nahi aayi lawde, text mein likh kar bhej! 😒")
     finally:
         for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
             if os.path.exists(f):
@@ -417,12 +414,14 @@ def handle_text(message):
         if not text_content:
             return
 
+        # Rate Limiter (1.5 seconds cooldown)
         current_time = time.time()
         if user.id in last_message_time:
-            if current_time - last_message_time[user.id] < 2:
+            if current_time - last_message_time[user.id] < 1.5:
                 return
         last_message_time[user.id] = current_time
 
+        # Strict Group Filter
         if chat_type in ["group", "supergroup"]:
             bot_mention = f"@{BOT_USERNAME}".lower()
             is_mentioned = bot_mention in text_content.lower()
@@ -433,8 +432,68 @@ def handle_text(message):
         user_id = user.id
         register_user(user_id, user.username, user.first_name)
 
+        # Handle Reply Keyboard Buttons
+        if text_content == "🎮 Guess Number":
+            secret_number = random.randint(1, 50)
+            ACTIVE_GAMES[chat_id = chat_type if False else chat_id] = {"target": secret_number, "attempts": 0}
+            ACTIVE_GAMES[message.chat.id] = {"target": secret_number, "attempts": 0}
+            bot.reply_to(message, "🎮 **Guess the Number Game Start!**\n1 se 50 ke beech ek number socha hai.. aukaat hai toh guess karke dikha! 🤭", reply_markup=get_main_keyboard())
+            return
+
+        elif text_content == "🎯 Truth or Dare":
+            tod_options = [
+                "Truth: Bata tu ne apni life mein sabse bada jhooth kya bola hai apne ghar walon ko? 🤨",
+                "Dare: Apne kisi bhi friend ko voice note bhej kar bol 'Mujhe tujhse pyaar ho gaya hai' aur screenshot bhej! 🤣",
+                "Truth: Tera pehla crush kaun tha aur abhi wo kahan hai? 👀",
+                "Dare: Ek aisi embarrassing photo ya moment bata jo aaj tak kisi ko nahi bataya! 💀"
+            ]
+            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{random.choice(tod_options)}", reply_markup=get_main_keyboard())
+            return
+
+        elif text_content == "🚀 Explore":
+            explore_text = (
+                "🚀 **Explore Venu / Ava's World:**\n\n"
+                "🔹 Mujhse kuch bhi general knowledge ya random facts pucho.\n"
+                "🔹 Roast ya comedy ke liye bolo, full bakchodi karenge!\n"
+                "🔹 Games khelne ke liye niche wale buttons use karo ya seedhe baat karo."
+            )
+            bot.reply_to(message, explore_text, reply_markup=get_main_keyboard())
+            return
+
+        elif text_content == "🧹 Clear Chat":
+            url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
+            try:
+                session.delete(url, headers=SUPABASE_HEADERS, timeout=10)
+                with cache_lock:
+                    if user_id in user_cache:
+                        del user_cache[user_id]
+            except Exception as e:
+                logger.error(f"Clear memory error: {e}")
+            bot.reply_to(message, "🧹 Saari chat saaf kar di! Naye sire se bakchodi shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
+            return
+
+        # Check if user is currently playing the Mini-Game
+        if message.chat.id in ACTIVE_GAMES and text_content.isdigit():
+            guess = int(text_content)
+            game = ACTIVE_GAMES[message.chat.id]
+            game["attempts"] += 1
+            target = game["target"]
+
+            if guess == target:
+                attempts = game["attempts"]
+                del ACTIVE_GAMES[message.chat.id]
+                bot.reply_to(message, f"🎉 **Oye Hoye! Sahi pakda lawde!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. maan gaye tere tukke ko! 🤣🔥", reply_markup=get_main_keyboard())
+                return
+            elif guess < target:
+                bot.reply_to(message, "📈 Arre chutiye, thoda bada number daal! Itna kam aukaat hai kya teri? 😂", reply_markup=get_main_keyboard())
+                return
+            else:
+                bot.reply_to(message, "📉 Oye oye aish mein mat aa, thoda chhota number daal lawde! 🤣", reply_markup=get_main_keyboard())
+                return
+
         try_react_to_message(message.chat.id, message.message_id, text_content)
 
+        # Typing simulation
         stop_typing = threading.Event()
         t_thread = threading.Thread(target=trigger_typing, args=(message.chat.id, stop_typing))
         t_thread.daemon = True
@@ -443,7 +502,7 @@ def handle_text(message):
         save_message(user_id, "user", text_content)
         update_user_cache(user_id, "user", text_content)
 
-        history = get_deep_chat_history(user_id, limit=25)
+        history = get_deep_chat_history(user_id, limit=30)
         situation = detect_mood_and_situation(text_content)
         
         response = generate_ai_response(history, user.first_name or "Dost", situation)
@@ -451,12 +510,12 @@ def handle_text(message):
         stop_typing.set()
         t_thread.join(timeout=1)
 
-        time.sleep(random.uniform(0.5, 1.2))
+        time.sleep(random.uniform(0.3, 0.8))
 
         save_message(user_id, "assistant", response)
         update_user_cache(user_id, "assistant", response)
 
-        bot.reply_to(message, response)
+        bot.reply_to(message, response, reply_markup=get_main_keyboard())
 
     except Exception as e:
         logger.error(f"Critical execution error in text handler: {e}")
@@ -466,7 +525,7 @@ def handle_text(message):
 # --- MAIN PRODUCTION LOOP ---
 # ==========================================
 if __name__ == "__main__":
-    logger.info("🚀 Starting Production-Grade Ava Telegram Bot & Keep-Alive Server...")
+    logger.info("🚀 Starting Production-Grade Ava/Venu Telegram Bot & Keep-Alive Server...")
 
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
