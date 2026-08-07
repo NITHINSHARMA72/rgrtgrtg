@@ -196,10 +196,10 @@ def generate_ai_response(message_list, user_name, situation):
     system_prompt = (
         "Tumhara naam **Venu** hai. Tum ek extremely intelligent, razor-sharp, witty, aur sarcastic desi dost ho jo bina kisi abusive language ke logon ki halki-fulki aur mast roasting karti hai. "
         "**Core Behaviour Rules:**\n"
-        "1. **Context & Depth Check:** User ke message ko dhyan se padho. Uske intent, mood, aur history ko analyze karke ek unique, non-repetitive reply do jo uske message se directly linked ho.\n"
-        "2. **Smart & Sarcastic Tone:** Normal baaton mein friendly aur sweet raho, lekin thodi playful taunts aur witty banter rakho. Kabhi bhi robotic ya boring answers mat do.\n"
-        "3. **Hinglish Style:** Hamesha conversational, modern Hinglish mein baat karo. Short, snappy replies rakho (1-3 sentences max) taaki chat ekdum live lage.\n"
-        "4. **No Identity Leak:** Kabhi mat bolna ki tum AI ho ya pre-programmed ho. Hamesha ek real sharp-witted dost ki tarah act karo.\n"
+        "1. **Context & Depth Check:** User ke message ko dhyan se padho. Uske intent, mood, aur history ko analyze kar ke ek unique, non-repetitive reply do.\n"
+        "2. **Smart & Sarcastic Tone:** Normal baaton mein friendly raho, par witty banter aur playful taunts ke sath.\n"
+        "3. **Hinglish Style:** Modern Hinglish mein baat karo. Short, snappy replies do (1-3 sentences max).\n"
+        "4. **No Identity Leak:** Kabhi mat bolna ki tum AI ho.\n"
         f"- Current User Situation/Vibe: {situation}"
     )
 
@@ -530,7 +530,7 @@ def handle_text(message):
                 "🔥 **Truth:** Aaj tak ka sabse bada ajeeb 'kaand' jo tere ghar walon ko aaj tak nahi pata? 💀",
                 "🔥 **Truth:** Agar tujhe ek din ke liye invisible hone ka mauka mile, toh sabse pehle kiske phone ki history check karega? 🤫",
                 "🔥 **Truth:** Tera koi aisa secret jise sunkar tera best friend bhi sharma jaye? 🤐",
-                "⚡ **Dare:** Apne kisi bhi dost ko voice note bhej kar bol — 'Mujhe apne aap se pyaar ho gaya hai' aur screenshot bhej! 🤣",
+                "⚡ **Dare:** Apne kisi bhi friend ko voice note bhej kar bol — 'Mujhe apne aap se pyaar ho gaya hai' aur screenshot bhej! 🤣",
                 "⚡ **Dare:** Apne phone ki gallery ka sabse random aur ajeeb photo bina context ke kisi dost ko bhej! 📸",
                 "⚡ **Dare:** Agle 10 minutes tak tu jo bhi message karega, uske aakhiri mein 'UwU 🥺' lagana padega! ✨",
                 "⚡ **Dare:** Apne last call log ka screenshot bhej (jisme naam dikhe ya blur karde agar sharam aaye)! 📞",
@@ -606,7 +606,7 @@ def handle_text(message):
             bot.reply_to(message, f"✨ Mujhe apne group mein add karne ke liye niche diye gaye link par click karo:\n\n👉 {group_link}", reply_markup=get_main_keyboard())
             return
 
-        # Check if user is playing Guess Number Game
+        # Check if user is playing Guess Number Game (Dynamic Diverse Responses)
         if chat_id in ACTIVE_GAMES and text_content.isdigit():
             guess = int(text_content)
             game = ACTIVE_GAMES[chat_id]
@@ -616,37 +616,64 @@ def handle_text(message):
             if guess == target:
                 attempts = game["attempts"]
                 del ACTIVE_GAMES[chat_id]
-                bot.reply_to(message, f"🎉 **Maana padega!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. lagta hai aaj qismat achhi hai teri! 🤣🔥", reply_markup=get_main_keyboard())
+                win_replies = [
+                    f"🎉 **Maana padega!** Sirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. lagta hai aaj qismat achhi hai teri! 🤣🔥",
+                    f"🎯 Boom! `{attempts}` baar mein target hit kar diya. Lagta hai aaj dimaag extra speed pe chal raha hai tera! 🚀",
+                    f"✨ Sahi pakda! `{attempts}` tries mein number mila liya.. itni sharpness kahan se laate ho bhai? 🤭"
+                ]
+                bot.reply_to(message, random.choice(win_replies), reply_markup=get_main_keyboard())
                 return
             elif guess < target:
-                bot.reply_to(message, "📈 Thoda bada number daal, itna chhota sochne se kaam nahi chalega! 😂", reply_markup=get_main_keyboard())
+                low_replies = [
+                    "📈 Thoda bada number daal, itna chhota sochne se kaam nahi chalega! 😂",
+                    "📉 Arey thoda upar jaao bhai, itne neeche target thodi baithega! 🥱",
+                    "🚀 Zameen se thoda upar utho, number kaafi aage hai! 🤭",
+                    "💡 Itna conservative guess kyun? Thoda bada number phenk kar dekho! 🎯"
+                ]
+                bot.reply_to(message, random.choice(low_replies), reply_markup=get_main_keyboard())
                 return
             else:
-                bot.reply_to(message, "📉 Thoda chhota number daal, hawa mein mat ud! 🥱", reply_markup=get_main_keyboard())
+                high_replies = [
+                    "📉 Thoda chhota number daal, hawa mein mat ud! 🥱",
+                    "🛑 Arey itna upar mat jao, rocket thodi launch karna hai! Thoda neeche aao! 😂",
+                    "📉 Bhavishya mein udne se pehle number thoda chhota karke dekho, isse neeche hai! 🤫",
+                    "⚖️ Limit mein raho dost, number isse kaafi chhota hai! 📉"
+                ]
+                bot.reply_to(message, random.choice(high_replies), reply_markup=get_main_keyboard())
                 return
 
-        # Check if user is responding to Riddle Battle
+        # Check if user is responding to Riddle Battle (Dynamic Diverse Responses)
         if chat_id in ACTIVE_RIDDLE_GAMES:
             correct_ans = ACTIVE_RIDDLE_GAMES.pop(chat_id)
             if correct_ans in text_content.lower():
-                bot.reply_to(message, f"🧠 **Wah bhai, genius nikla tu!**\nEkdum sahi jawab diya, lagta hai dimaag ki exercise shuru kar di hai tune! 🎯🔥", reply_markup=get_main_keyboard())
+                riddle_win = [
+                    "🧠 **Wah bhai, genius nikla tu!** Ekdum sahi jawab diya, lagta hai dimaag ki exercise shuru kar di hai tune! 🎯🔥",
+                    "🔥 Sahi pakde hain! Is riddle ka yahi jawab tha. Maan gaye aapke sharp dimaag ko! 😌✨",
+                    "💡 Brilliant! Ek hi baar mein correct jawab de diya. Aaj lagta hai full form mein ho! 🚀"
+                ]
+                bot.reply_to(message, random.choice(riddle_win), reply_markup=get_main_keyboard())
             else:
-                bot.reply_to(message, f"❌ **Galat jawab!**\nSahi jawab tha: *{correct_ans.capitalize()}*. Agli baar thoda dimaag laga kar aana! 🤭", reply_markup=get_main_keyboard())
+                riddle_fail = [
+                    f"❌ **Aha, galat jawab!** Sahi jawab tha: *{correct_ans.capitalize()}*. Agli baar thoda dimaag laga kar aana! 🤭",
+                    f"🤦‍♂️ Ghanta sahi jawab! Right answer tha: *{correct_ans.capitalize()}*. Thoda aur padhai-likhai karo bhai! 😂",
+                    f"📉 Arre yaar, galat ho gaya! Sahi word tha: *{correct_ans.capitalize()}*. Agli baar try karna! 💀"
+                ]
+                bot.reply_to(message, random.choice(riddle_fail), reply_markup=get_main_keyboard())
             return
 
-        # Check if user is responding to Roast War
+        # Check if user is responding to Roast War (Dynamic Diverse Responses)
         if chat_id in ACTIVE_ROAST_GAMES:
             ACTIVE_ROAST_GAMES.pop(chat_id)
             roast_comebacks = [
                 "Oho! Comeback toh aisa diya jaise Google se copy karke laya ho.. par chal maan liya, thoda toh dum hai tujhmein! 💀🔥",
                 "Waah! Yeh wala roast sunkar mujhe laga ab main hi retire ho jaun. Sahi khele ho! 🎯",
                 "Acha try tha, par mere level tak pahunchne ke liye abhi 10 saal aur maggi khani padegi! 😂",
-                "Chalo maan liya is baar tumnejeeta, par agli baar itni aasani se bachne nahi dungi! 😌✨"
+                "Chalo maan liya is baar tumne jeeta, par agli baar itni aasani se bachne nahi dungi! 😌✨"
             ]
             bot.reply_to(message, random.choice(roast_comebacks), reply_markup=get_main_keyboard())
             return
 
-        # Check if user is responding to Truth or Dare task
+        # Check if user is responding to Truth or Dare task (Dynamic Diverse Responses)
         if chat_id in ACTIVE_TOD_GAMES:
             ACTIVE_TOD_GAMES.pop(chat_id)
             tod_replies = [
