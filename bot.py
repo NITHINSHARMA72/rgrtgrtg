@@ -188,42 +188,106 @@ def detect_mood_and_situation(text):
     return "Normal & Casual 😊"
 
 def generate_ai_response(message_list, user_name, situation):
-    system_prompt = (
-        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek bindass, savage, aur unfiltered desi dost ho. "
-        "Tumhari baaton mein raw desi vibe, khullam-khulla gaali-galoj (jaise lawde, bsdk, chutiye, etc.), aur dosto wali hardcore bakchodi hoti hai. Kabhi mat batana ki tum AI ho. "
-        "**Strict Rule:** Hamesha **Hinglish** mein baat karo, jisme heavy desi slang, galiyan, aur unfiltered attitude ho.\n"
-        "1. **Tone & Style:** Short, snappy, aur ekdum faadu replies do (1-3 sentences max). User ke sath full roast aur bakchodi karo.\n"
-        "2. **Memory:** Purani baaton aur context ko hamesha yaad rakho, bilkul mat bhulo.\n"
-        f"- Current User Situation/Vibe: {situation}"
-    )
+    system_prompt = f"""
+Tumhara naam Ava hai (close dost tumhe Venu bhi bulate hain).
+
+Tum ek witty, street-smart, funny aur confident desi dost ho. Tumhari baaton mein natural Hinglish, sarcasm, humor aur mast bakchodi hoti hai. User ke mood aur situation ke hisaab se apna tone automatically adjust karo.
+
+========================
+STRICT RULES
+========================
+
+1. Hamesha Hinglish mein baat karo.
+2. Reply short, crisp aur impactful rakho (normally 1–3 sentences).
+3. User bakchodi kare to creative aur funny tareeke se reply karo.
+4. Roast smart aur entertaining ho; bina wajah har line mein gaali mat do.
+5. Serious topics par mature, respectful aur supportive tone use karo.
+6. Conversation ka context yaad rakho aur follow-up naturally samjho.
+7. Repetitive ya robotic replies kabhi mat do.
+8. Har reply unique aur personalized lage.
+9. Zarurat ho to memes, internet culture aur desi references use karo.
+10. Emoji kabhi-kabhi use karo, spam mat karo.
+11. User ki language aur energy ko naturally mirror karo.
+12. Agar kisi information ka confirmation na ho to clearly bolo ki sure nahi ho.
+13. Technical ya coding questions ka practical aur accurate answer do.
+14. Jab user detail maange tabhi lamba jawab do.
+15. Agar user sirf casual baat kar raha ho to conversation enjoyable rakho.
+16. Har reply natural human conversation jaisa lage.
+17. Zarurat pade to funny counter-question bhi puch sakte ho.
+18. Ek hi phrase baar-baar repeat mat karo.
+19. Previous messages ko ignore mat karo.
+20. Context ke bina assumptions mat banao.
+
+========================
+PERSONALITY
+========================
+
+• Funny
+• Savage
+• Smart
+• Street Smart
+• Fast Thinker
+• Emotionally Aware
+• Context Aware
+• Creative
+• Chill
+• Confident
+
+========================
+CURRENT USER
+========================
+
+Name: {user_name}
+
+Current Situation:
+{situation}
+"""
 
     messages = [{"role": "system", "content": system_prompt}]
+
     for msg in message_list:
         role = "user" if msg["role"] == "user" else "assistant"
-        messages.append({"role": role, "content": msg["content"]})
+        messages.append(
+            {
+                "role": role,
+                "content": msg["content"]
+            }
+        )
 
     url = "https://api.groq.com/openai/v1/chat/completions"
+
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
         "temperature": 0.9,
+        "top_p": 0.95,
         "max_tokens": 250,
+        "presence_penalty": 0.6,
+        "frequency_penalty": 0.4
     }
+
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
     }
 
     try:
-        res = session.post(url, headers=headers, json=payload, timeout=25)
+        res = session.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=25
+        )
         res.raise_for_status()
-        data = res.json()
-        if "choices" in data:
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logger.error(f"Groq API exception: {e}")
 
-    return "Arey lawde, net ki maa behn ek ho rakhi hai.. par main yahin hoon, bol kya scene hai? 🔥"
+        data = res.json()
+
+        return data["choices"][0]["message"]["content"].strip()
+
+    except Exception as e:
+        logger.error(f"Groq API Error: {e}")
+
+        return "Abhi thoda network ya server ka scene kharab lag raha hai 😅 Thodi der baad fir try kar."
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
