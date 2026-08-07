@@ -286,7 +286,7 @@ def get_main_keyboard():
 def cmd_start(message):
     user = message.from_user
     register_user(user.id, user.username, user.first_name)
-    name = user.first_name || "dost"
+    name = user.first_name or "dost"
 
     welcome_text = (
         f"Oye {name}! ✨ Main **Ava** (ya **Venu**) hoon. Bata aaj kya baat karni hai ya kaunsa game khelna hai? 😎🔥"
