@@ -71,6 +71,7 @@ last_message_time = {}
 processed_messages = deque(maxlen=1500)
 last_admin_error_time = 0
 ACTIVE_GAMES = {}
+ADMIN_BROADCAST_STATE = {}
 
 # ==========================================
 # --- FLASK KEEP-ALIVE SERVER ---
@@ -102,6 +103,16 @@ def register_user(user_id, username, first_name):
         res.raise_for_status()
     except Exception as e:
         logger.error(f"Supabase register_user error: {e}")
+
+def get_all_user_ids():
+    url = f"{SUPABASE_URL}/rest/v1/users?select=user_id"
+    try:
+        res = session.get(url, headers=SUPABASE_HEADERS, timeout=10)
+        res.raise_for_status()
+        return [row["user_id"] for row in res.json()]
+    except Exception as e:
+        logger.error(f"Supabase get_all_user_ids error: {e}")
+        return []
 
 def save_message(user_id, role, content):
     trivial_words = ["hi", "hello", "ok", "hmm", "k", "acha", "hlo"]
@@ -331,13 +342,54 @@ def cmd_admin(message):
         return
 
     total_users = get_total_users_count()
+    admin_markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    admin_markup.add(
+        telebot.types.InlineKeyboardButton("📢 Send Broadcast Message", callback_data="admin_broadcast_start"),
+        telebot.types.InlineKeyboardButton("🔄 Refresh Panel", callback_data="admin_refresh")
+    )
+
     admin_panel_text = (
         "👑 **Ava's Production Admin Panel** 👑\n\n"
         f"👥 **Total Users:** `{total_users}`\n"
         "🟢 **Status:** `Online & Active 24/7`\n"
         f"⚡ **Model:** `{MODEL_NAME}`"
     )
-    bot.reply_to(message, admin_panel_text, reply_markup=get_main_keyboard())
+    bot.reply_to(message, admin_panel_text, reply_markup=admin_markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_callbacks(call):
+    user_id = call.from_user.id
+    data = call.data
+
+    if data == "admin_refresh":
+        if user_id != ADMIN_ID:
+            bot.answer_callback_query(call.id, "Access Denied!", show_alert=True)
+            return
+        total_users = get_total_users_count()
+        admin_markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+        admin_markup.add(
+            telebot.types.InlineKeyboardButton("📢 Send Broadcast Message", callback_data="admin_broadcast_start"),
+            telebot.types.InlineKeyboardButton("🔄 Refresh Panel", callback_data="admin_refresh")
+        )
+        admin_panel_text = (
+            "👑 **Ava's Production Admin Panel** 👑\n\n"
+            f"👥 **Total Users:** `{total_users}`\n"
+            "🟢 **Status:** `Online & Active 24/7`\n"
+            f"⚡ **Model:** `{MODEL_NAME}`"
+        )
+        try:
+            bot.edit_message_text(admin_panel_text, call.message.chat.id, call.message.message_id, reply_markup=admin_markup)
+            bot.answer_callback_query(call.id, "Panel refreshed!")
+        except Exception:
+            pass
+
+    elif data == "admin_broadcast_start":
+        if user_id != ADMIN_ID:
+            bot.answer_callback_query(call.id, "Access Denied!", show_alert=True)
+            return
+        ADMIN_BROADCAST_STATE[user_id] = True
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "📢 **Broadcast Mode Activated:**\n\nAap jo bhi agla message bhejoge, woh sabko chala jayega. Cancel ke liye `/cancel` bhejo.")
 
 # ==========================================
 # --- MESSAGE & ASYNC VOICE HANDLERS ---
@@ -400,42 +452,63 @@ def handle_voice(message):
     try_react_to_message(message.chat.id, message.message_id, "voice message")
     threading.Thread(target=process_voice_background, args=(message,), daemon=True).start()
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(func=lambda message: True, content_types=['text', 'photo', 'video', 'document', 'audio', 'animation'])
 def handle_text(message):
     try:
-        if message.message_id in processed_messages:
-            return
-        processed_messages.append(message.message_id)
-
-        chat_type = message.chat.type
-        user = message.from_user
+        user_id = message.from_user.id
+        chat_id = message.chat.id
         text_content = message.text
+
+        # Handle Admin Broadcast Input
+        if user_id == ADMIN_ID and ADMIN_BROADCAST_STATE.get(user_id):
+            if text_content and text_content.lower() == "/cancel":
+                ADMIN_BROADCAST_STATE[user_id] = False
+                bot.reply_to(message, "❌ Broadcast cancelled.")
+                return
+
+            ADMIN_BROADCAST_STATE[user_id] = False
+            user_ids = get_all_user_ids()
+            success_count = 0
+            fail_count = 0
+
+            status_msg = bot.reply_to(message, f"📢 Broadcast started to {len(user_ids)} users...")
+
+            for uid in user_ids:
+                try:
+                    bot.copy_message(chat_id=uid, from_chat_id=message.chat.id, message_id=message.message_id)
+                    success_count += 1
+                    time.sleep(0.04)
+                except Exception as e:
+                    logger.debug(f"Broadcast fail for {uid}: {e}")
+                    fail_count += 1
+
+            bot.edit_message_text(f"📢 **Broadcast Completed!**\n\n✅ Successful: `{success_count}`\n❌ Failed: `{fail_count}`", status_msg.chat.id, status_msg.message_id)
+            return
 
         if not text_content:
             return
 
         # Rate Limiter (1.5 seconds cooldown)
         current_time = time.time()
-        if user.id in last_message_time:
-            if current_time - last_message_time[user.id] < 1.5:
+        if user_id in last_message_time:
+            if current_time - last_message_time[user_id] < 1.5:
                 return
-        last_message_time[user.id] = current_time
+        last_message_time[user_id] = current_time
 
         # Strict Group Filter
-        if chat_type in ["group", "supergroup"]:
+        if message.chat.type in ["group", "supergroup"]:
             bot_mention = f"@{BOT_USERNAME}".lower()
             is_mentioned = bot_mention in text_content.lower()
             is_reply = message.reply_to_message and message.reply_to_message.from_user.id == BOT_ID
             if not (is_mentioned or is_reply):
                 return
 
-        user_id = user.id
-        register_user(user_id, user.username, user.first_name)
+        register_user(user_id, message.from_user.username, message.from_user.first_name)
 
         # Handle Reply Keyboard Buttons
         if text_content == "🎮 Guess Number":
             secret_number = random.randint(1, 50)
-            ACTIVE_GAMES[message.chat.id] = {"target": secret_number, "attempts": 0}
+            ACTIVE_GAMES[chat_id] = {"target": secret_number, "attempts": 0}
             bot.reply_to(message, "🎮 **Guess the Number Game Start!**\n1 se 50 ke beech ek number socha hai.. aukaat hai toh guess karke dikha! 🤭", reply_markup=get_main_keyboard())
             return
 
@@ -472,15 +545,15 @@ def handle_text(message):
             return
 
         # Check if user is currently playing the Mini-Game
-        if message.chat.id in ACTIVE_GAMES and text_content.isdigit():
+        if chat_id in ACTIVE_GAMES and text_content.isdigit():
             guess = int(text_content)
-            game = ACTIVE_GAMES[message.chat.id]
+            game = ACTIVE_GAMES[chat_id]
             game["attempts"] += 1
             target = game["target"]
 
             if guess == target:
                 attempts = game["attempts"]
-                del ACTIVE_GAMES[message.chat.id]
+                del ACTIVE_GAMES[chat_id]
                 bot.reply_to(message, f"🎉 **Oye Hoye! Sahi pakda lawde!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. maan gaye tere tukke ko! 🤣🔥", reply_markup=get_main_keyboard())
                 return
             elif guess < target:
@@ -504,7 +577,7 @@ def handle_text(message):
         history = get_deep_chat_history(user_id, limit=30)
         situation = detect_mood_and_situation(text_content)
         
-        response = generate_ai_response(history, user.first_name or "Dost", situation)
+        response = generate_ai_response(history, message.from_user.first_name or "Dost", situation)
 
         stop_typing.set()
         t_thread.join(timeout=1)
