@@ -435,7 +435,6 @@ def handle_text(message):
         # Handle Reply Keyboard Buttons
         if text_content == "🎮 Guess Number":
             secret_number = random.randint(1, 50)
-            ACTIVE_GAMES[chat_id = chat_type if False else chat_id] = {"target": secret_number, "attempts": 0}
             ACTIVE_GAMES[message.chat.id] = {"target": secret_number, "attempts": 0}
             bot.reply_to(message, "🎮 **Guess the Number Game Start!**\n1 se 50 ke beech ek number socha hai.. aukaat hai toh guess karke dikha! 🤭", reply_markup=get_main_keyboard())
             return
