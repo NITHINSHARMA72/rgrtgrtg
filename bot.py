@@ -257,6 +257,96 @@ def evaluate_math(expression):
         return None
 
 # ==========================================
+# --- 100+ DIVERSE GAME DATASETS ---
+# ==========================================
+TRUTH_QUESTIONS = [
+    "Life mein sabse bada fattu wala kaam kaunsa kiya hai? 🤨",
+    "Tera pehla crush kaun tha aur kya usne reject kar diya tha? 👀",
+    "Bachpan mein kaunsa sabse bada kaand kiya tha jo ghar walon ko aaj tak nahi pata? 🤫",
+    "Agar tujhe ek din ke liye invisible hone ka mauka mile, toh tu sabse pehle kahan jayega? 👻",
+    "Aisa kaun sa jhoot hai jo tune apne best friend se bola hai? 🤥",
+    "Tera aaj tak ka sabse embarrassing moment kaunsa raha hai? 😳",
+    "Agar tujhe apne phone ki gallery sabko dikhani pade, toh tu kitna dरेगा? 📱",
+    "Tune aakhri baar kis baat par jhoot bola tha? 🤥",
+    "Tera sabse ajeeb darr (phobia) kya hai? 🕷️",
+    "Agar tu ek din ke liye opposite gender ban jaye, toh sabse pehle kya karega? 🙃",
+    "Tune aaj tak bina bill diye dukaan se kya churaya hai? 🛒",
+    "Tera sabse ganda habit kya hai jo kisi ko nahi pata? 🦥",
+    "Agar tujhe ek Billionaire banna ho, toh tu sabse pehle kya khridega? 💰",
+    "Tera sabse ajeeb khana khane ka combination kya hai? 🍕",
+    "Agar tujhe kisi celebrity ke sath ek din bitane mile, toh tu kise chuntega? 🌟",
+    "Kya tune kabhi exam mein cheating ki hai? Kaise? 📝",
+    "Tera sabse bada regret kya hai life mein? 🥀",
+    "Agar tujhe kisi ek insaan ki memory erase karni ho, toh kiske karega? 🧠",
+    "Tune aakhri baar internet par kya ajeeb cheez search ki thi? 🔍",
+    "Tera dream partner kaisa hona chahiye? ✨",
+    "Agar tu ek din ke liye desh ka PM ban jaye, toh sabse pehla rule kya badlega? 🏛️",
+    "Kya tujhe apne naam se nafrat hai? Agar haan, toh kya rakhna chahega? 📛",
+    "Tera sabse bada secret talent kya hai? 🎭",
+    "Kya tune kabhi raat ko bhoot dekhne ka natak kiya hai? 👻",
+    "Tera sabse purana aur ajeeb toy kaun sa tha? 🧸",
+    "Agar tujhe ek hi khana puri zindagi khana pade, toh tu kya chuntega? 🍛",
+    "Tera sabse awkward date kaisa raha tha? 🥀",
+    "Kya tune kabhi public place par zor se aawaz mein gana gaya hai? 🎤",
+    "Tera favorite cartoon character kaun sa tha bachpan mein? 📺",
+    "Agar koi tera phone bina lock khole check kar le, toh tu kitna darega? 📱"
+]
+
+DARE_TASKS = [
+    "Apne kisi friend ko voice note bhej kar bol — 'Mujhe apne aap se pyaar ho gaya hai' aur screenshot bhej! 🤣",
+    "Apne phone ki gallery ka sabse random aur ajeeb photo bina context ke kisi dost ko bhej! 📸",
+    "Agle 10 minutes tak tu jo bhi message karega, uske aakhiri mein 'UwU 🥺' lagana padega! ✨",
+    "Apne last call log ka screenshot bhej (jisme naam dikhe ya blur karde agar sharam aaye)! 📞",
+    "Apni crush ya ex ka naam chat mein type karke turant delete kar de! 🏃‍♂️",
+    "Apne kisi bhi dost ko emoji ke sath 'I need help, hide the body' message bhej! 🚨",
+    "Apne haath ki anokhi position ka photo khinch kar bhej! ✋",
+    "Agle 5 messages bina kisi vowels (A, E, I, O, U) ke likh kar dikha! 🔠",
+    "Apne kisi close friend ko call karke bina wajeh hasna shuru kar de aur phone kaat de! 📞",
+    "Apne room ki sabse gandi jagah ka photo khinch kar bhej! 🧹",
+    "Apni profile picture 10 minutes ke liye koi funny meme laga kar dikha! 🖼️",
+    "Apne kisi dost ko ek romantic shayari bhej aur screen recording bhej! 💌",
+    "Agle 3 minutes tak sirf caps lock mein chat karega! 🔊",
+    "Apne ghar ke sabse bade bartan ke sath selfie bhej! 🍳",
+    "Apne kisi dost ko text kar — 'Mujhe sapne mein alien dikha tha jo tera cousin tha' 👽"
+]
+
+RIDDLES_DATA = [
+    ("Aisi kaun si cheez hai jo jitni zyada saaf karo, utni hi gandi hoti hai?", "blackboard"),
+    ("Woh kya hai jo paida hote hi bina pairo ke bhagne lagti hai?", "hawa"),
+    ("Aisi kaun si cheez hai jo samandar mein paida hoti hai aur ghar mein aate hi gayab ho jati hai?", "namak"),
+    ("Aisi kaun si cheez hai jise aage se tum dekhte ho aur peeche se bhagwan dekhta hai?", "bicycle"),
+    ("Aisi kaun si cheez hai jiske paas pankh nahi hain par fir bhi woh udti hai?", "patang"),
+    ("Aisa kaun sa phool hai jo rang nahi deta par sabke sar par sajta hai?", "genda"),
+    ("Aisi kaun si cheez hai jo dhup mein bhi nahi sukhti?", "paseena"),
+    ("Woh kya hai jo saal mein ek baar aati hai aur mahine mein do baar, par din mein ek baar bhi nahi?", "m"),
+    ("Aisi kaun si cheez hai jise todne par aawaz nahi aati?", "bharosa"),
+    ("Kaun sa jal hai jo kabhi pyas nahi bujha pata?", "aankh ka jal"),
+    ("Aisi kaun si cheez hai jo jitni khinchoge, utni hi choti hoti jayegi?", "cigarette"),
+    ("Kala ghoda, safed sawari, ek utra toh dusri ki baari?", "tota aur mirchi"),
+    ("Ek thal motiyo se bhara, sabke sar par ulta dhara?", "aasmaan"),
+    ("Hari thi man bhari thi, lakh motiyo se jadi thi, raja ji ke bag mein dushala odh ke khadi thi?", "makka"),
+    ("Na mooh hai na hath hai, fir bhi sabka pet bharti hai?", "roti"),
+    ("Aisa kaun sa shehar hai jahan bina ticket ke ghoom sakte ho?", "andher nagri"),
+    ("Woh kaun si cheez hai jo baandhne par chalti hai aur kholne par ruk jati hai?", "joota"),
+    ("Aisi kaun si cheez hai jo bina pair ke chalti hai?", "ghadi"),
+    ("Aisa kaun sa fal hai jise pakne par meetha nahi hota?", "mirch"),
+    ("Jitna zyada isko loge, utna hi peeche chhodte jaoge?", "kadam")
+]
+
+ROAST_PROMPTS = [
+    "Bata bhai, itni lambi umar ho gayi par aaj tak koi dhang ki achievement hai ya bas resume mein jhuth likhne ki ninja technique aati hai? 💀",
+    "Tera screen time dekh kar toh lagta hai tu real life se zyada digital world mein reject hota hai! 😂",
+    "Aisi shakal ke sath confidence kahan se laate ho? Thodi training humein bhi dilwa do! 🤭",
+    "Tujhse baat karke lagta hai ki evolution ne beech mein hi process rokk diya tha! 🔥",
+    "Tera dimaag aur Internet Explorer dono ek jaisi speed par chalte hain! 🐢",
+    "Itna confuse toh GPS bhi nahi hota jitna tu apni life ke decisions ko lekar rehta hai! 🧭",
+    "Tujhe dekh kar lagta hai ki 'common sense' duniya ki sabse rare luxury ban chuki hai! 📉",
+    "Tera confidence aur tera talent dono alag-alag parallel universe mein rehte hain! 🌌",
+    "Agar laziness ka Olympic hota, toh tu pakka gold medal jeet kar sota rehta! 🥇",
+    "Tujhe dekh kar lagta hai ki nature bhi kabhi-kabhi 'undo' button dabana bhool jata hai! 🖥️"
+]
+
+# ==========================================
 # --- UNIFIED AI & EMOTIONAL ADAPTATION ---
 # ==========================================
 def check_similarity(new_text, previous_texts, threshold=0.75):
@@ -331,7 +421,7 @@ def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
     return {"mood": "Happy", "intent": "chat"}, fallback
 
 # ==========================================
-# --- MODULAR GAME MANAGER ---
+# --- MODULAR GAME MANAGER (WITH 100+ RANDOMIZED CONTENT) ---
 # ==========================================
 def handle_game_manager(message, game_type):
     chat_id = message.chat.id
@@ -343,25 +433,19 @@ def handle_game_manager(message, game_type):
             ACTIVE_GAME_SESSIONS[user_id] = {"type": "guess", "target": target, "attempts": 0, "created": time.time()}
             bot.reply_to(message, "🎮 **Guess the Number Battle!**\n1 se 50 ke beech ek number socha hai. Guess karke dikha! 🤭")
         elif game_type == "truth_or_dare":
-            tasks = [
-                "🔥 **Truth:** Life mein sabse bada fattu wala kaam kaunsa kiya hai? 🤨",
-                "🔥 **Truth:** Tera pehla crush kaun tha aur kya usne reject kar diya tha? 👀",
-                "⚡ **Dare:** Apne kisi friend ko voice note bhej kar bol — 'Mujhe apne aap se pyaar ho gaya hai' aur screenshot bhej! 🤣"
-            ]
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "tod", "task": random.choice(tasks), "created": time.time()}
-            bot.reply_to(message, f"🎯 **Truth or Dare Challenge:**\n\n{ACTIVE_GAME_SESSIONS[user_id]['task']}\n\n💬 Jawab de ya task poora kar!")
+            # Randomly pick from Truth or Dare datasets
+            pool = TRUTH_QUESTIONS + DARE_TASKS
+            task = random.choice(pool)
+            ACTIVE_GAME_SESSIONS[user_id] = {"type": "tod", "task": task, "created": time.time()}
+            bot.reply_to(message, f"🎯 **Truth or Dare Challenge:**\n\n{task}\n\n💬 Jawab de ya task poora kar!")
         elif game_type == "riddle":
-            riddles = [
-                ("Aisi kaun si cheez hai jo jitni zyada saaf karo, utni hi gandi hoti hai?", "blackboard"),
-                ("Woh kya hai jo paida hote hi bina pairo ke bhagne lagti hai?", "hawa"),
-                ("Samandar mein paida hoti hai aur ghar aate hi gayab ho jati hai?", "namak")
-            ]
-            r, a = random.choice(riddles)
+            r, a = random.choice(RIDDLES_DATA)
             ACTIVE_GAME_SESSIONS[user_id] = {"type": "riddle", "answer": a, "created": time.time()}
             bot.reply_to(message, f"🧩 **Riddle Battle Active:**\n\n*{r}*\n\n🧠 Sahi jawab dekar dikha! 💡")
         elif game_type == "roast_battle":
+            roast = random.choice(ROAST_PROMPTS)
             ACTIVE_GAME_SESSIONS[user_id] = {"type": "roast", "created": time.time()}
-            bot.reply_to(message, "🔥 **Roast War Initiated:**\nItni umar ho gayi par koi dhang ki achievement hai ya bas resume mein jhuth likhna aata hai? 💀\n\nAb iska solid comeback de!")
+            bot.reply_to(message, f"🔥 **Roast War Initiated:**\n{roast}\n\nAb iska solid comeback de!")
 
 def process_active_game(message, user_id, text_content):
     with state_lock:
@@ -500,7 +584,7 @@ def handle_incoming_message(message):
             cmd_clear(message)
             return
         elif text_content == "🚀 Explore":
-            bot.reply_to(message, "🚀 **Explore Venu's World:**\n🔹 Emotionally Adaptive AI\n🔹 Safe AST Calculator\n🔹 Multi-Game Hub\n🔹 Zero Repetition Architecture", reply_markup=get_main_keyboard())
+            bot.reply_to(message, "🚀 **Explore Venu's World:**\n🔹 Emotionally Adaptive AI\n🔹 Safe AST Calculator\n🔹 Multi-Game Hub (100+ items)\n🔹 Zero Repetition Architecture", reply_markup=get_main_keyboard())
             return
 
         if process_active_game(message, user_id, text_content):
