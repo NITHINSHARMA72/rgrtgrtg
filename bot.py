@@ -70,7 +70,7 @@ cache_lock = threading.Lock()
 last_message_time = {}
 processed_messages = deque(maxlen=1500)
 last_admin_error_time = 0
-ACTIVE_GAMES = {}          # For Guess Number Game
+ACTIVE_GAMES = {}         # For Guess Number Game
 ACTIVE_TOD_GAMES = {}      # For Truth or Dare State Game
 ADMIN_BROADCAST_STATE = {}
 
@@ -81,7 +81,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🤖 Ava/Venu is online, active 24/7, and running at peak performance!"
+    return "🤖 Venu is online, active 24/7, and running at peak performance!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -190,11 +190,10 @@ def detect_mood_and_situation(text):
 
 def generate_ai_response(message_list, user_name, situation):
     system_prompt = (
-        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek smart, adaptive desi dost ho. "
+        "Tumhara naam **Venu** hai. Tum ek smart, adaptive desi dost ho jo bina kisi abusive language ke ekdum modern aur mast vibe mein baat karti ho. "
         "**Strict Rule (Adaptive Tone & Vibe):**\n"
-        "1. User ke message ki bhasha aur tone ko dhyan se padho. Agar user polite ya girl vibe mein baat kar raha hai, toh tum bhi ekdum sweet, friendly aur safe language rakho (heavy gaaliyon se bacho).\n"
-        "2. Agar user khud slang ya gaali-galoj (jaise lawde, bsdk, chutiye) use kare, tabhi tum uske sath waisi hi raw desi bakchodi aur roasting karo.\n"
-        "3. Hamesha **Hinglish** mein baat karo. Short, snappy replies do (1-3 sentences max). Kabhi mat batana ki tum AI ho aur purani memory hamesha yaad rakho.\n"
+        "1. User ke message ki bhasha aur tone ko dhyan se padho. Ekdum sweet, friendly aur safe language rakho (no abuse/gaali).\n"
+        "2. Hamesha **Hinglish** mein baat karo. Short, snappy replies do (1-3 sentences max). Kabhi mat batana ki tum AI ho aur purani memory hamesha yaad rakho.\n"
         f"- Current User Situation/Vibe: {situation}"
     )
 
@@ -274,9 +273,9 @@ def get_main_keyboard():
     btn_game1 = telebot.types.KeyboardButton("🎮 Guess Number")
     btn_game2 = telebot.types.KeyboardButton("🎯 Truth or Dare")
     btn_explore = telebot.types.KeyboardButton("🚀 Explore")
-    btn_add_group = telebot.types.KeyboardButton("➕ Add Me To Group")
-    btn_clear = telebot.types.KeyboardButton("🧹 Clear Chat")
-    markup.add(btn_game1, btn_game2, btn_explore, btn_add_group, btn_clear)
+    btn_clear = telebot.types.KeyboardButton("🧹 Clear Chat")          # Swapped position
+    btn_add_group = telebot.types.KeyboardButton("➕ Add Me To Group") # Swapped position
+    markup.add(btn_game1, btn_game2, btn_explore, btn_clear, btn_add_group)
     return markup
 
 # ==========================================
@@ -289,7 +288,7 @@ def cmd_start(message):
     name = user.first_name or "dost"
 
     welcome_text = (
-        f"Oye {name}! ✨ Main **Ava** (ya **Venu**) hoon. Bata aaj kya baat karni hai ya kaunsa game khelna hai? 😎🔥"
+        f"Oye {name}! ✨ Main **Venu** hoon. Bata aaj kya baat karni hai ya kaunsa game khelna hai? 😎🔥"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
     bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
@@ -302,7 +301,7 @@ def cmd_add(message):
 @bot.message_handler(commands=["help"])
 def cmd_help(message):
     help_text = (
-        "✨ **Venu / Ava's Menu:**\n\n"
+        "✨ **Venu's Menu:**\n\n"
         "🔹 `/start` - Bot restart karo\n"
         "🔹 `/add` - Group add link lo\n"
         "🔹 `/clear` - Purani memory saaf karo\n"
@@ -331,9 +330,9 @@ def cmd_clear(message):
 def cmd_settings(message):
     user_id = message.chat.id
     text = (
-        "⚙️ **Ava / Venu Status & Info:**\n\n"
+        "⚙️ **Venu Status & Info:**\n\n"
         f"👤 **Your ID:** `{user_id}`\n"
-        "💬 **Vibe:** Adaptive (Safe with Girls / Desi with Boys)\n"
+        "💬 **Vibe:** Modern & Desi (Safe & Chill)\n"
         "🧠 **Memory:** Fully Active & Connected"
     )
     bot.reply_to(message, text, reply_markup=get_main_keyboard())
@@ -352,7 +351,7 @@ def cmd_admin(message):
     )
 
     admin_panel_text = (
-        "👑 **Ava's Production Admin Panel** 👑\n\n"
+        "👑 **Venu's Production Admin Panel** 👑\n\n"
         f"👥 **Total Users:** `{total_users}`\n"
         "🟢 **Status:** `Online & Active 24/7`\n"
         f"⚡ **Model:** `{MODEL_NAME}`"
@@ -375,7 +374,7 @@ def handle_callbacks(call):
             telebot.types.InlineKeyboardButton("🔄 Refresh Panel", callback_data="admin_refresh")
         )
         admin_panel_text = (
-            "👑 **Ava's Production Admin Panel** 👑\n\n"
+            "👑 **Venu's Production Admin Panel** 👑\n\n"
             f"👥 **Total Users:** `{total_users}`\n"
             "🟢 **Status:** `Online & Active 24/7`\n"
             f"⚡ **Model:** `{MODEL_NAME}`"
@@ -431,7 +430,7 @@ def process_voice_background(message):
         save_message(user_id, "assistant", reply)
         update_user_cache(user_id, "assistant", reply)
 
-        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Ava:**\n{reply}")
+        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n🤖 **Venu:**\n{reply}")
 
         tts = gTTS(text=reply, lang="hi")
         tts.save(mp3_rep)
@@ -508,7 +507,7 @@ def handle_text(message):
 
         register_user(user_id, message.from_user.username, message.from_user.first_name)
 
-        # Handle Reply Keyboard Buttons
+        # Handle Reply Keyboard Buttons (Swapped Clear Chat & Add Me To Group positions)
         if text_content == "🎮 Guess Number":
             secret_number = random.randint(1, 50)
             ACTIVE_GAMES[chat_id] = {"target": secret_number, "attempts": 0}
@@ -536,30 +535,25 @@ def handle_text(message):
         elif text_content == "🚀 Explore":
             explore_options = [
                 (
-                    "🚀 **Explore Venu / Ava's World (Edition 1):**\n\n"
+                    "🚀 **Explore Venu's World (Edition 1):**\n\n"
                     "🔹 **GK & Facts:** Mujhse space, history, ya science ke random mind-blowing facts pucho!\n"
                     "🔹 **Roast Session:** Agar bezzati karwani hai ya kisi ki lagani hai, toh mujhe topic do.\n"
                     "🔹 **Shayari Mode:** Koi dard ya pyaar bhari shayari sunane ko bolo."
                 ),
                 (
-                    "🚀 **Explore Venu / Ava's World (Edition 2):**\n\n"
+                    "🚀 **Explore Venu's World (Edition 2):**\n\n"
                     "🔹 **Story Time:** Mujhse koi suspenseful ya horror kahani sunane ko bolo.\n"
                     "🔹 **Life Advice:** Agar kisi confusion mein ho, toh ek achhe dost ki tarah salah lo.\n"
                     "🔹 **Jokes & Fun:** Comedy aur non-stop masti ke liye ready raho!"
                 ),
                 (
-                    "🚀 **Explore Venu / Ava's World (Edition 3):**\n\n"
+                    "🚀 **Explore Venu's World (Edition 3):**\n\n"
                     "🔹 **Pop Culture & Tech:** Movies, web series, ya latest AI trends par baat karte hain.\n"
                     "🔹 **Secret Confessions:** Apne dil ki baat batao, yahan sab safe hai.\n"
                     "🔹 **Challenge Me:** Koi difficult sawal pooch kar mujhe test karo!"
                 )
             ]
             bot.reply_to(message, random.choice(explore_options), reply_markup=get_main_keyboard())
-            return
-
-        elif text_content == "➕ Add Me To Group":
-            group_link = f"https://t.me/{BOT_USERNAME}?startgroup=true"
-            bot.reply_to(message, f"✨ Mujhe apne group mein add karne ke liye niche diye gaye link par click karo:\n\n👉 {group_link}", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🧹 Clear Chat":
@@ -572,6 +566,11 @@ def handle_text(message):
             except Exception as e:
                 logger.error(f"Clear memory error: {e}")
             bot.reply_to(message, "🧹 Saari chat saaf kar di! Naye sire se baatein shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
+            return
+
+        elif text_content == "➕ Add Me To Group":
+            group_link = f"https://t.me/{BOT_USERNAME}?startgroup=true"
+            bot.reply_to(message, f"✨ Mujhe apne group mein add karne ke liye niche diye gaye link par click karo:\n\n👉 {group_link}", reply_markup=get_main_keyboard())
             return
 
         # Check if user is currently playing the Mini-Game (Guess Number)
@@ -593,14 +592,14 @@ def handle_text(message):
                 bot.reply_to(message, "📉 Thoda chhota number daal, isse neeche hai! 🥱", reply_markup=get_main_keyboard())
                 return
 
-        # Check if user is responding to Truth or Dare task
+        # Check if user is responding to Truth or Dare task (Updated modern desi replies without "task completed")
         if chat_id in ACTIVE_TOD_GAMES:
             assigned_task = ACTIVE_TOD_GAMES.pop(chat_id)
             tod_replies = [
-                f"Wah! Task to bade acche se complete kiya.. maan gaye tere confidence ko! 🤣🔥",
-                f"Sahi hai! Tune task ka jawab de diya, mast maza aaya! 💀",
-                f"Chal maan liya tera jawab.. sachchi baatein karne mein alag hi maza hai na? 🤭",
-                f"Aha! Task complete hogaya successfully! ✨"
+                "Oho! Maan gaye bhai, kya fearless move tha yeh! 🤭🔥",
+                "Damdaar jawab diya hai, maza aa gaya sunn kar! 💀✨",
+                "Sahi khela hai yaar, yeh confidence dekhne layak tha! 🎯",
+                "Wah bhai wah! Agli baar isse bhi zyada hard task dungi tujhe! 😌🚀"
             ]
             bot.reply_to(message, random.choice(tod_replies), reply_markup=get_main_keyboard())
             return
@@ -639,7 +638,7 @@ def handle_text(message):
 # --- MAIN PRODUCTION LOOP ---
 # ==========================================
 if __name__ == "__main__":
-    logger.info("🚀 Starting Production-Grade Ava/Venu Telegram Bot & Keep-Alive Server...")
+    logger.info("🚀 Starting Production-Grade Venu Telegram Bot & Keep-Alive Server...")
 
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
