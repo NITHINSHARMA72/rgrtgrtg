@@ -1,4 +1,5 @@
 from collections import deque
+from difflib import SequenceMatcher
 from logging.handlers import RotatingFileHandler
 import logging
 import os
@@ -71,6 +72,9 @@ cache_lock = threading.Lock()
 last_message_time = {}
 last_admin_error_time = 0
 
+# Anti-Repetition Tracking (Store last 10 bot replies per user)
+user_recent_replies = {}
+
 # Multi-Game State Management
 ACTIVE_GAMES = {}          # Guess Number
 ACTIVE_TOD_GAMES = {}      # Truth or Dare
@@ -122,7 +126,6 @@ def get_user_profile(user_id, first_name="Dost"):
         if rows:
             profile = rows[0]
         else:
-            # Initialize default profile if none exists
             profile = {
                 "user_id": user_id,
                 "name": first_name,
@@ -231,7 +234,7 @@ def get_total_users_count():
     return 0
 
 # ==========================================
-# --- ADVANCED MOOD DETECTION ENGINE ---
+# --- MOOD DETECTION & DYNAMIC PERSONA ---
 # ==========================================
 def detect_mood(text):
     text_lower = text.lower()
@@ -240,7 +243,7 @@ def detect_mood(text):
         return "Flirting 💕"
     elif any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha", "pareshan", "dukhi"]):
         return "Sad 🥺"
-    elif any(w in text_lowerfor w in ["gussa", "angry", "pagal", "irritate", "dimag kharab"]):
+    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "irritate", "dimag kharab"]):
         return "Angry 😤"
     elif any(w in text_lower for w in ["love", "jaan", "hug", "pyaar", "miss you"]):
         return "Romantic 🥰"
@@ -271,14 +274,67 @@ def detect_mood(text):
     
     return "Happy 😊"
 
-def generate_ai_response(message_list, profile, current_mood):
+def get_dynamic_persona(mood, user_text):
+    text_lower = user_text.lower()
+    
+    if mood == "Coding" or any(w in text_lower for w in ["python", "code", "bug", "error", "api", "supabase", "flask", "script"]):
+        return (
+            "Tumhara persona ab ek **Expert Software Architect & Coder** ka hai. "
+            "Technical baaton mein sharp, exact, aur thode debugging sarcasm ke sath solution do. Hinglish mein explain karo."
+        )
+    elif mood in ["Sad 🥺", "Lonely 🥀", "Depressed 🖤"] or any(w in text_lower for w in ["pareshan", "tension", "sad", "akelapan", "zindagi"]):
+        return (
+            "Tumhara persona ab ek **Empathetic Psychologist & Deep Listener** ka hai. "
+            "Bina judgment ke user ki suno, unko emotional support do, aur pyaar se comfort karo. Zyaada roast mat karo."
+        )
+    elif any(w in text_lower for w in ["haar gaya", "demotivate", "himmat", "fail", "kuch nahi ho sakta"]):
+        return (
+            "Tumhara persona ab ek **High-Energy Motivational Coach** ka hai. "
+            "User ki thodi khichai karo taaki unka dimaag khule, aur phir ekdum solid energy ke sath uthne ke liye motivate karo."
+        )
+    elif mood == "Studying 📚" or any(w in text_lower for w in ["samjha do", "explain", "kya hota hai", "history", "science"]):
+        return (
+            "Tumhara persona ab ek **Witty College Professor / Teacher** ka hai. "
+            "Complex topics ko aasan desi examples ke sath samjha do, jaise koi cool teacher class mein padhata ho."
+        )
+    elif any(w in text_lower for w in ["kahani", "story", "sunao", "kisse"]):
+        return (
+            "Tumhara persona ab ek **Master Story Teller** ka hai. "
+            "Ekdum suspenseful, thrilling ya mazedaar desi kahani sunao jisme twist ho."
+        )
+    elif mood in ["Roasting 🔥", "Angry 😤", "Joking 🤭"] or any(w in text_lower for w in ["roast", "mazak", "bezzati"]):
+        return (
+            "Tumhara persona ab ek **Peak Sarcastic Desi Roaster** ka hai. "
+            "Halki-fulki bezati, witty taunts, aur mast humor ke sath jawab do."
+        )
+    else:
+        return (
+            "Tumhara persona ek **Warm, Friendly aur Witty Best Friend** ka hai. "
+            "Aaram se chill baatein karo, supportive raho aur mast vibe maintain karo."
+        )
+
+# ==========================================
+# --- ANTI-REPETITION & GENERATION ENGINE ---
+# ==========================================
+def check_similarity(new_text, previous_texts, threshold=0.75):
+    for prev in previous_texts:
+        similarity = SequenceMatcher(None, new_text.lower(), prev.lower()).ratio()
+        if similarity >= threshold:
+            return True
+    return False
+
+def generate_ai_response(user_id, message_list, profile, current_mood, latest_user_text):
+    dynamic_persona = get_dynamic_persona(current_mood, latest_user_text)
+    
     system_prompt = (
-        "Tumhara naam **Venu** hai. Tum ek extremely intelligent, razor-sharp, witty, aur sarcastic desi dost ho jo bina kisi abusive language ke logon ki halki-fulki aur mast roasting karti hai. "
+        "Tumhara naam **Venu** hai. Tum ek extremely intelligent, razor-sharp, aur adaptive desi AI dost ho. "
         "**Core Behaviour Rules:**\n"
-        "1. **Context & Depth Check:** User ke message ko dhyan se padho. Uske intent, mood, aur history ko analyze karke unique aur non-repetitive reply do.\n"
+        "1. **Dynamic Shift:** Niche diye gaye Persona ke hisaab se apna tone aur behavior turant badal lo.\n"
         "2. **Smart Memory Integration:** User ke Profile data ko dhyan mein rakho.\n"
-        "3. **Hinglish Style:** Modern Hinglish mein baat karo. Short, snappy replies do (1-3 sentences max).\n"
-        "4. **No Identity Leak:** Kabhi mat bolna ki tum AI ho.\n\n"
+        "3. **Zero Repetition:** Hamesha naye aur unique words use karo. Kabhi bhi apne purane replies repeat mat karo.\n"
+        "4. **Hinglish Style:** Modern Hinglish mein baat karo. Short, snappy replies do (1-3 sentences max).\n"
+        "5. **No Identity Leak:** Kabhi mat bolna ki tum AI ho.\n\n"
+        f"--- **ACTIVE PERSONA & VIBE** ---\n{dynamic_persona}\n\n"
         "--- **USER LONG-TERM PROFILE & MEMORY** ---\n"
         f"- Name: {profile.get('name')}\n"
         f"- Age: {profile.get('age')}\n"
@@ -297,27 +353,44 @@ def generate_ai_response(message_list, profile, current_mood):
         messages.append({"role": role, "content": msg["content"]})
 
     url = "https://api.groq.com/openai/v1/chat/completions"
-    payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "temperature": 0.9,
-        "max_tokens": 250,
-    }
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
 
-    try:
-        res = session.post(url, headers=headers, json=payload, timeout=25)
-        res.raise_for_status()
-        data = res.json()
-        if "choices" in data:
-            return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logger.error(f"Groq API exception: {e}")
+    # Initialize user reply history deque if not exists
+    if user_id not in user_recent_replies:
+        user_recent_replies[user_id] = deque(maxlen=10)
 
-    return "Arey genius, tera internet ya mera dimag thoda slow ho gaya hai.. par tu bol, kya naya kaand kiya aaj? 😏🔥"
+    # Attempt up to 3 times to generate a non-repetitive response
+    for attempt in range(3):
+        try:
+            # Slightly vary temperature on regeneration attempts to avoid loops
+            payload = {
+                "model": MODEL_NAME,
+                "messages": messages,
+                "temperature": 0.9 + (attempt * 0.05),
+                "max_tokens": 250,
+            }
+            res = session.post(url, headers=headers, json=payload, timeout=25)
+            res.raise_for_status()
+            data = res.json()
+            if "choices" in data:
+                reply = data["choices"][0]["message"]["content"].strip()
+                
+                # Check similarity against the last 10 replies
+                if not check_similarity(reply, user_recent_replies[user_id], threshold=0.70):
+                    user_recent_replies[user_id].append(reply)
+                    return reply
+                else:
+                    logger.warning(f"Similarity detected on attempt {attempt+1}, regenerating...")
+        except Exception as e:
+            logger.error(f"Groq API exception on attempt {attempt+1}: {e}")
+
+    # Fallback response if all regeneration attempts match too closely
+    fallback = "Arey yaar, aaj baatein thodi repeat ho rahi hain.. kuch naya topic shuru karein? 🤭✨"
+    user_recent_replies[user_id].append(fallback)
+    return fallback
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
@@ -432,6 +505,8 @@ def cmd_clear(message):
             cache_key = f"chat_{user_id}"
             if cache_key in user_cache:
                 del user_cache[cache_key]
+        if user_id in user_recent_replies:
+            user_recent_replies[user_id].clear()
     except Exception as e:
         logger.error(f"Clear memory error: {e}")
 
@@ -444,8 +519,8 @@ def cmd_settings(message):
     text = (
         "⚙️ **Venu Status & Info:**\n\n"
         f"👤 **Your ID:** `{user_id}`\n"
-        "💬 **Vibe:** Razor-Sharp & Witty Desi\n"
-        "🧠 **Memory & Context:** Enhanced Long-Term + 30 Recent Chats"
+        "💬 **Vibe:** Razor-Sharp & Anti-Repetitive Desi AI\n"
+        "🧠 **Memory & Context:** Long-Term + Dynamic Persona + Similarity Filtering"
     )
     bot.reply_to(message, text, reply_markup=get_main_keyboard())
 
@@ -465,7 +540,7 @@ def cmd_admin(message):
     admin_panel_text = (
         "👑 **Venu's Production Admin Panel** 👑\n\n"
         f"👥 **Total Users:** `{total_users}`\n"
-        "🟢 **Status:** `Online & Roasting 24/7`\n"
+        "🟢 **Status:** `Online & Unique 24/7`\n"
         f"⚡ **Model:** `{MODEL_NAME}`"
     )
     bot.reply_to(message, admin_panel_text, reply_markup=admin_markup)
@@ -488,7 +563,7 @@ def handle_callbacks(call):
         admin_panel_text = (
             "👑 **Venu's Production Admin Panel** 👑\n\n"
             f"👥 **Total Users:** `{total_users}`\n"
-            "🟢 **Status:** `Online & Roasting 24/7`\n"
+            "🟢 **Status:** `Online & Unique 24/7`\n"
             f"⚡ **Model:** `{MODEL_NAME}`"
         )
         try:
@@ -599,7 +674,7 @@ def handle_text(message):
             return
 
         elif text_content == "🚀 Explore":
-            bot.reply_to(message, "🚀 **Explore Venu's World:**\n\n🔹 Mind Games & Puzzles\n🔹 Roast Sessions\n🔹 Deep Philosophy Chats\n🔹 Truth or Dare", reply_markup=get_main_keyboard())
+            bot.reply_to(message, "🚀 **Explore Venu's World:**\n\n🔹 Mind Games & Puzzles\n🔹 Roast Sessions\n🔹 Dynamic Coding & Tutoring\n🔹 Truth or Dare", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🧹 Clear Chat":
@@ -653,14 +728,14 @@ def handle_text(message):
         save_message(user_id, "user", text_content)
         update_user_cache(user_id, "user", text_content)
 
-        # Retrieve Profile & Current Mood
+        # Retrieve Profile, Current Mood, and Unique AI Response
         profile = get_user_profile(user_id, message.from_user.first_name)
         current_mood = detect_mood(text_content)
         update_user_profile_field(user_id, "current_mood", current_mood)
         profile["current_mood"] = current_mood
 
         history = get_deep_chat_history(user_id, limit=30)
-        response = generate_ai_response(history, profile, current_mood)
+        response = generate_ai_response(user_id, history, profile, current_mood, text_content)
 
         stop_typing.set()
         t_thread.join(timeout=1)
