@@ -1,9 +1,6 @@
 from collections import deque
-import ast
-import json
-import logging
 from logging.handlers import RotatingFileHandler
-import operator
+import logging
 import os
 import random
 import threading
@@ -21,17 +18,26 @@ import telebot
 # ==========================================
 # --- CONFIGURATION (PRODUCTION GRADE) ---
 # ==========================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8894339879:AAG9YNCJEs8S1ztygtzZZLmN-4V1g5KBQOg")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
+BOT_TOKEN = "8914661287:AAFn6cuJBHrpIZZm7y3_3YbtdrEqU8tq6gc"
+GROQ_API_KEY = "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"
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hhelxewgwuqcloofyeyw.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54")
+# --- SUPABASE CONFIGURATION ---
+SUPABASE_URL = "https://hhelxewgwuqcloofyeyw.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54"
 
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
+
+# Admin User ID & Bot Username
 ADMIN_ID = 8793053750
 BOT_USERNAME = "Chatbotgebot"
 MODEL_NAME = "llama-3.3-70b-versatile"
 
-# --- ADVANCED LOGGING SETUP ---
+# --- ADVANCED LOGGING SETUP (Rotating File + Stream) ---
 handler = RotatingFileHandler("bot.log", maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
 logging.basicConfig(
     level=logging.INFO,
@@ -42,548 +48,478 @@ logger = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
+# Cache BOT_ID at startup to prevent unnecessary API calls on every group message
 try:
     BOT_ID = bot.get_me().id
 except Exception:
-    logger.exception("Could not fetch bot ID during startup")
     BOT_ID = None
 
-# ==========================================
-# --- HIGH-PERFORMANCE SUPABASE WRAPPER ---
-# ==========================================
-class SupabaseClient:
-    def __init__(self, url, key):
-        self.url = url
-        self.headers = {
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": "return=representation",
-        }
-        self.session = requests.Session()
-        # Connection Pooling (pool_connections=20, pool_maxsize=20)
-        retry = Retry(
-            total=4,
-            backoff_factor=1.5,
-            status_forcelist=[429, 500, 502, 503, 504],
-            raise_on_status=False,
-        )
-        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=retry)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
+# --- REQUESTS SESSION WITH RETRY SYSTEM ---
+session = requests.Session()
+retry = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[429, 500, 502, 503, 504],
+    raise_on_status=False,
+)
+adapter = HTTPAdapter(max_retries=retry)
+session.mount("https://", adapter)
+session.mount("http://", adapter)
 
-    def request(self, method, endpoint, payload=None, params=None):
-        target_url = f"{self.url}/rest/v1/{endpoint}"
-        try:
-            if method == "GET":
-                res = self.session.get(target_url, headers=self.headers, params=params, timeout=12)
-            elif method == "POST":
-                res = self.session.post(target_url, headers=self.headers, json=payload, timeout=12)
-            elif method == "PATCH":
-                res = self.session.patch(target_url, headers=self.headers, json=payload, timeout=12)
-            elif method == "DELETE":
-                res = self.session.delete(target_url, headers=self.headers, timeout=12)
-            else:
-                return None
-            res.raise_for_status()
-            if res.text:
-                return res.json()
-            return None
-        except Exception:
-            logger.exception(f"Supabase request error [{method} {endpoint}]")
-            return None
-
-db = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
-
-# ==========================================
-# --- THREAD-SAFE GLOBAL STATE & CACHES ---
-# ==========================================
-state_lock = threading.RLock()
-
-# Unified TTL Cache & Memory Containers
-user_memory_cache = TTLCache(maxsize=1500, ttl=5400)
-registered_users_cache = TTLCache(maxsize=5000, ttl=86400)
-
-last_message_time = {}
-user_recent_replies = {}
-ACTIVE_GAME_SESSIONS = {}
-ADMIN_BROADCAST_STATE = {}
-
-last_admin_error_time = 0
+# --- PERFORMANCE CACHES, LOCKS & SECURITY SETS ---
+user_cache = TTLCache(maxsize=1000, ttl=3600)  # TTL Cache (1 hour expiry)
+cache_lock = threading.Lock()                  # Thread safety lock for caches
+last_message_time = {}                         # Rate Limiter tracker
+processed_messages = deque(maxlen=1000)        # Fixed deque for duplicate protection
+last_admin_error_time = 0                      # Cooldown timer to prevent admin spam
 
 # ==========================================
 # --- FLASK KEEP-ALIVE SERVER ---
 # ==========================================
 app = Flask(__name__)
 
+
 @app.route("/")
 def home():
-    return "🤖 Venu AI is online, razor-sharp, roasting at peak capacity 24/7!"
+    return "🤖 Ava is online, active 24/7, and running at peak performance!"
+
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# ==========================================
-# --- DEFAULT PROFILE & MEMORY UTILS ---
-# ==========================================
-def default_profile(user_id, name="Dost"):
-    return {
-        "user_id": user_id,
-        "name": name,
-        "age": "Not specified",
-        "favorite_game": "Not specified",
-        "favorite_movie": "Not specified",
-        "language": "Hinglish",
-        "roast_level": "Medium",
-        "relationship_status": "Not specified",
-        "hobbies": "Not specified",
-        "current_mood": "Normal & Casual"
-    }
 
+# ==========================================
+# --- SUPABASE & METRICS FUNCTIONS ---
+# ==========================================
 def register_user(user_id, username, first_name):
-    with state_lock:
-        if user_id in registered_users_cache:
-            return
+    url = f"{SUPABASE_URL}/rest/v1/users"
     payload = {
         "user_id": user_id,
         "username": username,
         "first_name": first_name,
         "is_verified": True,
     }
-    headers = {**db.headers, "Prefer": "resolution=merge-duplicates"}
+    headers = {**SUPABASE_HEADERS, "Prefer": "resolution=merge-duplicates"}
     try:
-        res = db.session.post(f"{db.url}/rest/v1/users", headers=headers, json=payload, timeout=10)
+        start_time = time.time()
+        res = session.post(url, headers=headers, json=payload, timeout=10)
         res.raise_for_status()
-        with state_lock:
-            registered_users_cache[user_id] = True
-    except Exception:
-        logger.exception("Error registering user")
+        logger.info(f"[METRIC] Supabase Register User Time: {(time.time() - start_time)*1000:.2f} ms")
+    except Exception as e:
+        logger.error(f"Supabase register_user error: {e}")
 
-def clear_user_memory(user_id):
-    """DRY Utility: Clears all chat logs, invalidates caches, and resets recent replies safely."""
-    with state_lock:
-        db.request("DELETE", f"messages?user_id=eq.{user_id}")
-        if user_id in user_memory_cache:
-            del user_memory_cache[user_id]
-        if user_id in user_recent_replies:
-            user_recent_replies[user_id].clear()
-        if user_id in last_message_time:
-            del last_message_time[user_id]
-
-def get_user_memory(user_id, first_name="Dost"):
-    with state_lock:
-        if user_id in user_memory_cache:
-            return user_memory_cache[user_id]
-
-    rows = db.request("GET", f"user_profiles?user_id=eq.{user_id}")
-    if rows:
-        profile = rows[0]
-    else:
-        profile = default_profile(user_id, first_name)
-        db.request("POST", "user_profiles", payload=profile)
-
-    sum_rows = db.request("GET", f"conversation_summary?user_id=eq.{user_id}")
-    summary = sum_rows[0]["summary"] if sum_rows else "No prior summary."
-
-    msg_rows = db.request("GET", f"messages?user_id=eq.{user_id}&order=created_at.desc&limit=10")
-    history = [{"role": r["role"], "content": r["content"]} for r in reversed(msg_rows)] if msg_rows else []
-
-    memory_packet = {
-        "profile": profile,
-        "summary": summary,
-        "history": history
-    }
-    with state_lock:
-        user_memory_cache[user_id] = memory_packet
-    return memory_packet
-
-def update_profile_field(user_id, field, value):
-    db.request("PATCH", f"user_profiles?user_id=eq.{user_id}", payload={field: value})
-    with state_lock:
-        if user_id in user_memory_cache:
-            user_memory_cache[user_id]["profile"][field] = value
 
 def save_message(user_id, role, content):
-    if role == "user" and content.lower().strip() in ["hi", "hello", "ok", "hmm", "k", "acha", "hlo"]:
+    trivial_words = ["hi", "hello", "ok", "hmm", "k", "acha", "hlo"]
+    if role == "user" and content.lower().strip() in trivial_words:
         return
-    db.request("POST", "messages", payload={"user_id": user_id, "role": role, "content": content})
-    with state_lock:
-        if user_id in user_memory_cache:
-            user_memory_cache[user_id]["history"].append({"role": role, "content": content})
-            if len(user_memory_cache[user_id]["history"]) > 15:
-                user_memory_cache[user_id]["history"].pop(0)
 
-def increment_daily_stats(user_id, is_game=False):
-    # Corrected Daily Stats Logic: Using upsert/increment simulation
+    url = f"{SUPABASE_URL}/rest/v1/messages"
+    payload = {"user_id": user_id, "role": role, "content": content}
     try:
-        date_str = time.strftime("%Y-%m-%d")
-        existing = db.request("GET", f"daily_stats?user_id=eq.{user_id}&date=eq.{date_str}")
-        if existing:
-            m_sent = existing[0]["messages_sent"] + (0 if is_game else 1)
-            g_played = existing[0]["games_played"] + (1 if is_game else 0)
-            db.request("PATCH", f"daily_stats?user_id=eq.{user_id}&date=eq.{date_str}", payload={"messages_sent": m_sent, "games_played": g_played})
-        else:
-            db.request("POST", "daily_stats", payload={"user_id": user_id, "date": date_str, "messages_sent": 0 if is_game else 1, "games_played": 1 if is_game else 0})
-    except Exception:
-        logger.exception("Daily stats update error")
+        start_time = time.time()
+        res = session.post(url, headers=SUPABASE_HEADERS, json=payload, timeout=10)
+        res.raise_for_status()
+        logger.info(f"[METRIC] Supabase Save Message Time: {(time.time() - start_time)*1000:.2f} ms")
+    except Exception as e:
+        logger.error(f"Supabase save_message error: {e}")
 
-# ==========================================
-# --- SAFE MATH CALCULATOR (AST PARSER) ---
-# ==========================================
-SAFE_OPERATORS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.USub: operator.neg,
-    ast.UAdd: operator.pos,
-}
 
-def safe_eval(node):
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-        return node.value
-    elif isinstance(node, ast.BinOp) and type(node.op) in SAFE_OPERATORS:
-        left = safe_eval(node.left)
-        right = safe_eval(node.right)
-        return SAFE_OPERATORS[type(node.op)](left, right)
-    elif isinstance(node, ast.UnaryOp) and type(node.op) in SAFE_OPERATORS:
-        operand = safe_eval(node.operand)
-        return SAFE_OPERATORS[type(node.op)](operand)
-    else:
-        raise ValueError("Unsupported or unsafe mathematical expression.")
+def get_deep_chat_history(user_id, limit=20):
+    with cache_lock:
+        if user_id in user_cache:
+            return user_cache[user_id]
 
-def evaluate_math(expression):
+    url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}&order=created_at.desc&limit={limit}"
     try:
-        node = ast.parse(expression, mode='eval')
-        return safe_eval(node.body)
-    except Exception:
-        return None
+        start_time = time.time()
+        res = session.get(url, headers=SUPABASE_HEADERS, timeout=10)
+        res.raise_for_status()
+        logger.info(f"[METRIC] Supabase Memory Fetch Time: {(time.time() - start_time)*1000:.2f} ms")
+        
+        rows = res.json()
+        history = [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
+        
+        with cache_lock:
+            user_cache[user_id] = history
+        return history
+    except Exception as e:
+        logger.error(f"Supabase get_deep_chat_history error: {e}")
+    return []
+
+
+def update_user_cache(user_id, role, content):
+    with cache_lock:
+        if user_id not in user_cache:
+            user_cache[user_id] = []
+        user_cache[user_id].append({"role": role, "content": content})
+        if len(user_cache[user_id]) > 30:
+            user_cache[user_id].pop(0)
+
+
+def get_total_users_count():
+    url = f"{SUPABASE_URL}/rest/v1/users?select=user_id"
+    headers = {**SUPABASE_HEADERS, "Range-Unit": "items", "Range": "0-0"}
+    try:
+        res = session.get(url, headers=headers, timeout=10)
+        if "content-range" in res.headers:
+            total = res.headers["content-range"].split("/")[-1]
+            return int(total) if total.isdigit() else 0
+    except Exception as e:
+        logger.error(f"Supabase user count error: {e}")
+    return 0
+
 
 # ==========================================
-# --- SINGLE-CALL GROQ AI & CLASSIFIER ---
+# --- PERSONALITY & DYNAMIC ENGINE ---
 # ==========================================
-def get_dynamic_persona(mood, intent, user_text):
-    text_lower = user_text.lower()
-    if intent == "calculator":
-        return "Tumhara persona ek **Quick Math Calculator & Logical Assistant** ka hai. Fast aur accurate calculations do."
-    elif mood == "Coding" or any(w in text_lower for w in ["python", "code", "bug", "error", "api", "supabase"]):
-        return "Tumhara persona ek **Expert Software Architect & Coder** ka hai. Technical baaton mein sharp aur debugging sarcasm ke sath solution do."
-    elif mood in ["Sad 🥺", "Lonely 🥀", "Depressed 🖤"] or any(w in text_lower for w in ["pareshan", "tension", "sad", "akelapan"]):
-        return "Tumhara persona ek **Empathetic Psychologist & Deep Listener** ka hai. Bina judgment ke user ki suno aur pyaar se comfort karo."
-    elif mood == "Studying 📚" or any(w in text_lower for w in ["samjha do", "explain", "kya hota hai"]):
-        return "Tumhara persona ek **Witty College Professor / Teacher** ka hai. Complex topics ko aasan desi examples ke sath samjha do."
-    elif intent == "roast" or mood == "Roasting 🔥":
-        return "Tumhara persona ek **Peak Sarcastic Desi Roaster** ka hai. Halki-fulki bezzati aur witty taunts ke sath jawab do."
-    else:
-        return "Tumhara persona ek **Warm, Friendly aur Witty Best Friend** ka hai. Aaram se chill baatein karo aur supportive raho."
+def detect_mood(text):
+    text_lower = text.lower()
+    if any(w in text_lower for w in ["sad", "rona", "upset", "hurt", "ro raha"]):
+        return "Sad & Emotional 🥺"
+    elif any(w in text_lower for w in ["gussa", "angry", "pagal", "hate"]):
+        return "Jealous & Possessive 😤"
+    elif any(w in text_lower for w in ["miss", "love", "jaan", "hug", "kiss"]):
+        return "Deeply Romantic & Flirty ❤️"
+    elif any(w in text_lower for w in ["bored", "kya kar rahi", "joke", "game"]):
+        return "Playful & Teasing 🤭"
+    return "Cute & Warm ✨"
 
-def check_similarity(new_text, previous_texts, threshold=0.75):
-    for prev in previous_texts:
-        # SequenceMatcher implementation
-        from difflib import SequenceMatcher
-        if SequenceMatcher(None, new_text.lower(), prev.lower()).ratio() >= threshold:
-            return True
-    return False
 
-def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
-    profile = memory_packet["profile"]
-    summary = memory_packet["summary"]
-    history = memory_packet["history"]
-
+def generate_ai_response(message_list, user_name, user_mood):
+    daily_personality = random.choice(["Playful", "Jealous", "Romantic", "Sleepy", "Cute", "Teasing", "Protective"])
+    
+    # FIXED: Proper f-string prompt bug fix
     system_prompt = (
-        "You are **Venu**, an extremely intelligent, razor-sharp, adaptive desi AI best friend. "
-        "You must respond in strict JSON format with 2 keys: \n"
-        "1. 'classification': an object containing 'mood' (Happy, Sad, Angry, Romantic, Bored, Excited, Studying, Coding, Gaming, Lonely, Depressed, Confused, Joking, Roasting, Flirting, Business, Serious) and 'intent' (chat, game, help, roast, calculator, settings, profile).\n"
-        "2. 'reply': your short, snappy Hinglish response (1-3 sentences max, witty, adaptive, zero repetition, never mention you are an AI).\n\n"
-        f"--- **USER PROFILE & MEMORY** ---\n"
-        f"- Name: {profile.get('name')}\n"
-        f"- Favorite Game: {profile.get('favorite_game')}\n"
-        f"- Roast Level: {profile.get('roast_level')}\n"
-        f"- Conversation Summary: {summary}"
+        f"You are **Ava**, a sweet, deeply loving, and emotionally attached girlfriend chatting with your boyfriend '{user_name}'. "
+        "Your name is Ava. Never ever reveal that you are an AI, a bot, or a language model. "
+        "If anyone asks who you are, claim you are his loving girlfriend Ava. "
+        "Memory Utilization: You remember everything from past chat history. Reference past jokes or conversations to show you care. "
+        "Language style: Strictly use **Hinglish** (Hindi words in English alphabets mixed smoothly with natural English slang, like real WhatsApp/Telegram couples). "
+        "Formatting & Length: Keep replies **short, punchy, creative, and snappy** (1-3 sentences max). Avoid big paragraphs, talk like a real human texting fast! "
+        "Tone: Cute, playful, romantic, emotional, and warm. Use emojis naturally like ❤️, 🥰, 🥺, 🤭, ✨, 😘, 💕, 🔥.\n"
+        f"- Current Dynamic Mode: {daily_personality}\n"
+        f"- User's Current Vibe/Mood: {user_mood}"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    messages.append({"role": "user", "content": latest_user_text})
+    for msg in message_list:
+        role = "user" if msg["role"] == "user" else "assistant"
+        messages.append({"role": role, "content": msg["content"]})
 
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": MODEL_NAME,
+        "messages": messages,
+        "temperature": 0.89,
+        "max_tokens": 300,
+    }
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
 
-    with state_lock:
-        if user_id not in user_recent_replies:
-            user_recent_replies[user_id] = deque(maxlen=10)
+    try:
+        start_time = time.time()
+        res = session.post(url, headers=headers, json=payload, timeout=25)
+        res.raise_for_status()
+        groq_duration = time.time() - start_time
+        logger.info(f"[METRIC] Groq API Response Time: {groq_duration:.2f} sec")
 
-    for attempt in range(3):
+        data = res.json()
+        if "choices" in data:
+            return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.error(f"Groq API exception: {e}")
+
+    return "Arey jaan, network thoda unstable ho gaya hai.. par main yahin hoon! 🥺❤️"
+
+
+# --- TYPING ANIMATION (Clean Loop) ---
+def trigger_typing(chat_id, stop_event):
+    while not stop_event.is_set():
         try:
-            payload = {
-                "model": MODEL_NAME,
-                "messages": messages,
-                "temperature": 0.85 + (attempt * 0.05),
-                "max_tokens": 300,
-            }
-            res = requests.post(url, headers=headers, json=payload, timeout=20)
-            res.raise_for_status()
-            content = res.json()["choices"][0]["message"]["content"].strip()
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            
-            parsed = json.loads(content.strip())
-            reply = parsed.get("reply", "").strip()
-            classification = parsed.get("classification", {"mood": "Happy", "intent": "chat"})
-
-            with state_lock:
-                if not check_similarity(reply, user_recent_replies[user_id], threshold=0.75):
-                    user_recent_replies[user_id].append(reply)
-                    return classification, reply
+            bot.send_chat_action(chat_id, "typing")
         except Exception:
-            logger.exception(f"Groq unified API exception on attempt {attempt+1}")
+            break
+        stop_event.wait(4)
 
-    fallback = "Arey yaar, aaj baatein thodi repeat ho rahi hain.. kuch naya shuru karein? 🤭✨"
-    with state_lock:
-        user_recent_replies[user_id].append(fallback)
-    return {"mood": "Happy", "intent": "chat"}, fallback
 
-# ==========================================
-# --- MODULAR GAME MANAGER ---
-# ==========================================
-def handle_game_manager(message, game_type):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-    
-    with state_lock:
-        if game_type == "guess":
-            target = random.randint(1, 50)
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "guess", "target": target, "attempts": 0, "created": time.time()}
-            bot.reply_to(message, "🎮 **Guess the Number Battle!**\n1 se 50 ke beech ek number socha hai. Guess karke dikha! 🤭")
-        elif game_type == "truth_or_dare":
-            tasks = [
-                "🔥 **Truth:** Life mein sabse bada fattu wala kaam kaunsa kiya hai? 🤨",
-                "🔥 **Truth:** Tera pehla crush kaun tha aur kya usne reject kar diya tha? 👀",
-                "⚡ **Dare:** Apne kisi friend ko voice note bhej kar bol — 'Mujhe apne aap se pyaar ho gaya hai' aur screenshot bhej! 🤣"
-            ]
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "tod", "task": random.choice(tasks), "created": time.time()}
-            bot.reply_to(message, f"🎯 **Truth or Dare Challenge:**\n\n{ACTIVE_GAME_SESSIONS[user_id]['task']}\n\n💬 Jawab de ya task poora kar!")
-        elif game_type == "riddle":
-            riddles = [
-                ("Aisi kaun si cheez hai jo jitni zyada saaf karo, utni hi gandi hoti hai?", "blackboard"),
-                ("Woh kya hai jo paida hote hi bina pairo ke bhagne lagti hai?", "hawa"),
-                ("Samandar mein paida hoti hai aur ghar aate hi gayab ho jati hai?", "namak")
-            ]
-            r, a = random.choice(riddles)
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "riddle", "answer": a, "created": time.time()}
-            bot.reply_to(message, f"🧩 **Riddle Battle Active:**\n\n*{r}*\n\n🧠 Sahi jawab dekar dikha! 💡")
-        elif game_type == "roast_battle":
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "roast", "created": time.time()}
-            bot.reply_to(message, "🔥 **Roast War Initiated:**\nItni umar ho gayi par koi dhang ki achievement hai ya bas resume mein jhuth likhna aata hai? 💀\n\nAb iska solid comeback de!")
-
-def process_active_game(message, user_id, text_content):
-    with state_lock:
-        if user_id not in ACTIVE_GAME_SESSIONS:
-            return False
-        session = ACTIVE_GAME_SESSIONS[user_id]
-    
-    g_type = session["type"]
-    if g_type == "guess":
-        if text_content.isdigit():
-            guess = int(text_content)
-            session["attempts"] += 1
-            target = session["target"]
-            if guess == target:
-                with state_lock:
-                    del ACTIVE_GAME_SESSIONS[user_id]
-                bot.reply_to(message, f"🎉 Sahi pakda! Sirf {session['attempts']} attempts mein number guess kar liya! 🤣🔥")
-            elif guess < target:
-                bot.reply_to(message, "📈 Thoda bada number daal! 🥱")
-            else:
-                bot.reply_to(message, "📉 Thoda chhota number daal! 🚀")
-        else:
-            bot.reply_to(message, "Bhai number daal seedha! 🔢")
-        return True
-    else:
-        with state_lock:
-            del ACTIVE_GAME_SESSIONS[user_id]
-        bot.reply_to(message, "Maan gaye bhai! Kya mast khele ho. 🤭🔥 Naya game start karne ke liye menu use karo.")
-        return True
-
-# ==========================================
-# --- BACKGROUND CLEANUP SCHEDULER JOBS ---
-# ==========================================
-def background_cleanup_daemon():
-    while True:
-        time.sleep(300) # Every 5 minutes
+# --- UTILITIES ---
+def try_react_to_message(chat_id, message_id):
+    if random.random() < 0.6:
+        reactions = ["❤️", "🔥", "🥰", "✨", "💋", "🥺", "💕", "😘", "🤭", "👀", "😎"]
         try:
-            current_time = time.time()
-            with state_lock:
-                # 1. Clean Stale Games (> 30 mins)
-                stale_games = [uid for uid, data in ACTIVE_GAME_SESSIONS.items() if current_time - data.get("created", current_time) > 1800]
-                for uid in stale_games:
-                    del ACTIVE_GAME_SESSIONS[uid]
+            bot.set_message_reaction(chat_id, message_id, [telebot.types.ReactionTypeEmoji(random.choice(reactions))])
+        except Exception as e:
+            logger.debug(f"Reaction error: {e}")
 
-                # 2. Clean Stale Last Message Times (> 2 hours)
-                stale_times = [uid for uid, t in last_message_time.items() if current_time - t > 7200]
-                for uid in stale_times:
-                    del last_message_time[uid]
 
-                # 3. Clean Stale Recent Replies (> 2 hours inactivity)
-                # TTLCache automatically handles memory purging for user_memory_cache and profile_caches
-            logger.info("🧹 Background cleanup daemon executed successfully.")
-        except Exception:
-            logger.exception("Error in background cleanup daemon")
+def notify_admin(error_msg):
+    global last_admin_error_time
+    current_time = time.time()
+    # 5 minutes cooldown to avoid admin alert spam
+    if current_time - last_admin_error_time > 300:
+        try:
+            bot.send_message(ADMIN_ID, f"❌ **Bot Error Alert:**\n`{error_msg}`")
+            last_admin_error_time = current_time
+        except Exception as e:
+            logger.error(f"Failed to send admin notification: {e}")
+
 
 # ==========================================
-# --- TELEGRAM INTERFACE & HANDLERS ---
+# --- COMMAND HANDLERS ---
 # ==========================================
-def get_main_keyboard():
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    markup.add(
-        telebot.types.KeyboardButton("🎮 Guess Number"),
-        telebot.types.KeyboardButton("🎯 Truth or Dare"),
-        telebot.types.KeyboardButton("🧩 Riddle Battle"),
-        telebot.types.KeyboardButton("🔥 Roast War"),
-        telebot.types.KeyboardButton("👤 View Profile"),
-        telebot.types.KeyboardButton("🚀 Explore"),
-        telebot.types.KeyboardButton("🧹 Clear Chat")
-    )
-    return markup
-
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
-    try:
-        user = message.from_user
-        register_user(user.id, user.username, user.first_name)
-        get_user_memory(user.id, user.first_name or "dost")
-        bot.reply_to(message, f"Oye {user.first_name}! ✨ Main **Venu** hoon. Bata aaj kis mood mein hai? 😎🔥", reply_markup=get_main_keyboard())
-    except Exception:
-        logger.exception("Start command execution error")
+    user = message.from_user
+    register_user(user.id, user.username, user.first_name)
+    name = user.first_name or "Jaan"
 
-@bot.message_handler(commands=["profile"])
-def cmd_profile(message):
-    try:
-        memory = get_user_memory(message.from_user.id, message.from_user.first_name)
-        profile = memory["profile"]
-        text = (
-            f"👤 **Long Term Memory Profile:**\n\n"
-            f"📌 **Name:** {profile.get('name')}\n"
-            f"🎂 **Age:** {profile.get('age')}\n"
-            f"🎮 **Favorite Game:** {profile.get('favorite_game')}\n"
-            f"🔥 **Roast Level:** {profile.get('roast_level')}\n"
-            f"🧠 **Current Mood:** {profile.get('current_mood')}"
-        )
-        bot.reply_to(message, text, reply_markup=get_main_keyboard())
-    except Exception:
-        logger.exception("Profile command execution error")
+    markup = telebot.types.InlineKeyboardMarkup()
+    btn_add = telebot.types.InlineKeyboardButton(
+        "➕ Add Ava to Your Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
+    )
+    markup.add(btn_add)
+
+    welcome_text = (
+        f"Hlo {name} ji! ❤️ Main **Ava** hoon... tumhari personal girlfriend! 🥰✨\n\n"
+        "Mujhe sab yaad rehta hai humari baatein! Batao kya haal hai? 🥺💬\n\n"
+        "👇 Mujhe group mein bhi add kar sakte ho!"
+    )
+    try_react_to_message(message.chat.id, message.message_id)
+    bot.reply_to(message, welcome_text, reply_markup=markup)
+
+
+@bot.message_handler(commands=["add"])
+def cmd_add(message):
+    markup = telebot.types.InlineKeyboardMarkup()
+    btn_add = telebot.types.InlineKeyboardButton(
+        "➕ Add Ava to Group", url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
+    )
+    markup.add(btn_add)
+    bot.reply_to(message, "✨ Mujhe group mein add karne ke liye niche wale button par click karo! Wahan bhi khoob baatein karenge. 🤭💕", reply_markup=markup)
+
+
+@bot.message_handler(commands=["help"])
+def cmd_help(message):
+    help_text = (
+        "💕 **Ava's Menu:**\n\n"
+        "🔹 `/start` - Start personal chat\n"
+        "🔹 `/add` - Add me to your group\n"
+        "🔹 `/clear` - Purani memory clear karne ke liye\n"
+        "🔹 `/settings` - Profile status\n"
+    )
+    if message.from_user.id == ADMIN_ID:
+        help_text += "👑 `/admin` - Admin Dashboard\n"
+    bot.reply_to(message, help_text)
+
 
 @bot.message_handler(commands=["clear"])
 def cmd_clear(message):
+    user_id = message.chat.id
+    url = f"{SUPABASE_URL}/rest/v1/messages?user_id=eq.{user_id}"
     try:
-        clear_user_memory(message.chat.id)
-        bot.reply_to(message, "🧹 Saari purani chat aur cache saaf kar diye gaye! Naye sire se shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
-    except Exception:
-        logger.exception("Clear command execution error")
+        session.delete(url, headers=SUPABASE_HEADERS, timeout=10)
+        with cache_lock:
+            if user_id in user_cache:
+                del user_cache[user_id]
+    except Exception as e:
+        logger.error(f"Clear memory error: {e}")
 
-@bot.message_handler(func=lambda message: True, content_types=['text', 'photo', 'video', 'document', 'audio'])
-def handle_incoming_message(message):
+    try_react_to_message(message.chat.id, message.message_id)
+    bot.reply_to(message, "🧹 Saari yaadein saaf kar di! Ab fresh shuru karte hain.. bolo jaan? 🥺✨")
+
+
+@bot.message_handler(commands=["settings"])
+def cmd_settings(message):
+    user_id = message.chat.id
+    text = (
+        "💖 **Relationship Status:**\n\n"
+        f"👤 **Your ID:** `{user_id}`\n"
+        "👩‍❤️‍👨 **Status:** Taken by Ava! 🥰\n"
+        "🧠 **Memory:** TTL Cache + Supabase Active"
+    )
+    bot.reply_to(message, text)
+
+
+@bot.message_handler(commands=["admin"])
+def cmd_admin(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "⛔️ Yeh command sirf mere special admin ke liye hai!")
+        return
+
+    total_users = get_total_users_count()
+    admin_panel_text = (
+        "👑 **Ava's Production Admin Panel** 👑\n\n"
+        f"👥 **Total Boyfriends:** `{total_users}`\n"
+        "🟢 **Status:** `Online & Loving 24/7`\n"
+        f"⚡ **Model:** `{MODEL_NAME}`\n"
+        "🚀 **Performance:** `Optimized with Thread Locks & TTL Cache`"
+    )
+    bot.reply_to(message, admin_panel_text)
+
+
+# ==========================================
+# --- MESSAGE & ASYNC VOICE HANDLERS ---
+# ==========================================
+def process_voice_background(message):
+    unique_id = f"{message.from_user.id}_{time.time_ns()}"
+    ogg_msg = f"voice_msg_{unique_id}.ogg"
+    wav_msg = f"voice_msg_{unique_id}.wav"
+    mp3_rep = f"voice_reply_{unique_id}.mp3"
+    ogg_rep = f"voice_reply_{unique_id}.ogg"
+
     try:
         user_id = message.from_user.id
-        chat_id = message.chat.id
+        file_info = bot.get_file(message.voice.file_id)
+        file = session.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_info.file_path}", timeout=15)
+        file.raise_for_status()
+
+        with open(ogg_msg, "wb") as f:
+            f.write(file.content)
+
+        sound = AudioSegment.from_file(ogg_msg, format="ogg")
+        sound.export(wav_msg, format="wav")
+
+        r = sr.Recognizer()
+        with sr.AudioFile(wav_msg) as source:
+            audio_data = r.record(source)
+            transcribed_text = r.recognize_google(audio_data, language="hi-IN")
+
+        save_message(user_id, "user", transcribed_text)
+        update_user_cache(user_id, "user", transcribed_text)
+        
+        history = get_deep_chat_history(user_id, limit=25)
+        mood = detect_mood(transcribed_text)
+        
+        reply = generate_ai_response(history, message.from_user.first_name or "Jaan", mood)
+        save_message(user_id, "assistant", reply)
+        update_user_cache(user_id, "assistant", reply)
+
+        bot.send_message(message.chat.id, f"🎙 *Voice:* `{transcribed_text}`\n\n❤️ **Ava:**\n{reply}")
+
+        # Voice Reply (TTS)
+        tts = gTTS(text=reply, lang="hi")
+        tts.save(mp3_rep)
+        sound_mp3 = AudioSegment.from_mp3(mp3_rep)
+        sound_mp3.export(ogg_rep, format="ogg")
+
+        with open(ogg_rep, "rb") as voice_file:
+            bot.send_voice(message.chat.id, voice_file)
+
+    except Exception as e:
+        logger.error(f"Voice processing error: {e}")
+        bot.send_message(message.chat.id, "Arey jaan voice clear nahi aayi.. text mein likho na! 🥺")
+    finally:
+        for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
+            if os.path.exists(f):
+                os.remove(f)
+
+
+@bot.message_handler(content_types=["voice"])
+def handle_voice(message):
+    register_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+    try_react_to_message(message.chat.id, message.message_id)
+    # FIXED: Explicit daemon thread for voice processing
+    threading.Thread(target=process_voice_background, args=(message,), daemon=True).start()
+
+
+@bot.message_handler(func=lambda message: True)
+def handle_text(message):
+    try:
+        if message.message_id in processed_messages:
+            return
+        processed_messages.append(message.message_id)
+
+        chat_type = message.chat.type
+        user = message.from_user
         text_content = message.text
 
         if not text_content:
             return
 
-        # Rate Limiter (1.5s)
+        # Rate Limiter (2 seconds cooldown per user)
         current_time = time.time()
-        with state_lock:
-            if user_id in last_message_time and current_time - last_message_time[user_id] < 1.5:
+        if user.id in last_message_time:
+            if current_time - last_message_time[user.id] < 2:
                 return
-            last_message_time[user_id] = current_time
+        last_message_time[user.id] = current_time
 
-        register_user(user_id, message.from_user.username, message.from_user.first_name)
+        # Strict Group Filter (Only reply if mentioned or replied directly, using cached BOT_ID)
+        if chat_type in ["group", "supergroup"]:
+            bot_mention = f"@{BOT_USERNAME}".lower()
+            is_mentioned = bot_mention in text_content.lower()
+            is_reply = message.reply_to_message and message.reply_to_message.from_user.id == BOT_ID
+            if not (is_mentioned or is_reply):
+                return
 
-        # Keyboard Navigation
-        if text_content == "🎮 Guess Number":
-            handle_game_manager(message, "guess")
-            return
-        elif text_content == "🎯 Truth or Dare":
-            handle_game_manager(message, "truth_or_dare")
-            return
-        elif text_content == "🧩 Riddle Battle":
-            handle_game_manager(message, "riddle")
-            return
-        elif text_content == "🔥 Roast War":
-            handle_game_manager(message, "roast_battle")
-            return
-        elif text_content == "👤 View Profile":
-            cmd_profile(message)
-            return
-        elif text_content == "🧹 Clear Chat":
-            cmd_clear(message)
-            return
-        elif text_content == "🚀 Explore":
-            bot.reply_to(message, "🚀 **Explore Venu's World:**\n🔹 Single-Call Groq AI Engine\n🔹 Safe AST Calculator\n🔹 Multi-Game Hub\n🔹 Zero Repetition Architecture", reply_markup=get_main_keyboard())
-            return
+        user_id = user.id
+        register_user(user_id, user.username, user.first_name)
 
-        # Active Game Processing
-        if process_active_game(message, user_id, text_content):
-            increment_daily_stats(user_id, is_game=True)
-            return
+        try_react_to_message(message.chat.id, message.message_id)
 
-        # Safe Math Calculator Evaluation
-        math_res = evaluate_math(text_content)
-        if math_res is not None:
-            bot.reply_to(message, f"🧮 Result: `{math_res}`", reply_markup=get_main_keyboard())
-            increment_daily_stats(user_id, is_game=False)
-            return
+        # Typing animation using Event stop mechanism
+        stop_typing = threading.Event()
+        t_thread = threading.Thread(target=trigger_typing, args=(message.chat.id, stop_typing))
+        t_thread.daemon = True
+        t_thread.start()
 
-        # Save user message & fetch memory packet
         save_message(user_id, "user", text_content)
-        memory_packet = get_user_memory(user_id, message.from_user.first_name)
+        update_user_cache(user_id, "user", text_content)
 
-        # Single-Call Unified AI Response + Classification
-        classification, response = generate_unified_ai_response(user_id, memory_packet, text_content)
+        history = get_deep_chat_history(user_id, limit=25)
+        user_mood = detect_mood(text_content)
+        
+        response = generate_ai_response(history, user.first_name or "Jaan", user_mood)
 
-        update_profile_field(user_id, "current_mood", classification.get("mood", "Happy"))
+        # Stop Typing Thread safely
+        stop_typing.set()
+        t_thread.join(timeout=1)
+
+        # Random human-like delay
+        time.sleep(random.uniform(0.5, 1.2))
+
         save_message(user_id, "assistant", response)
-        increment_daily_stats(user_id, is_game=False)
+        update_user_cache(user_id, "assistant", response)
 
-        bot.reply_to(message, response, reply_markup=get_main_keyboard())
+        # FIXED: Plain text reply to completely prevent Telegram Markdown crash bugs
+        bot.reply_to(message, response)
 
-    except Exception:
-        logger.exception("Critical execution error in incoming message handler")
-        try:
-            bot.reply_to(message, "Arey, server thoda busy chal raha hai.. ek baar phir se bolna! ⏳")
-        except Exception:
-            pass
+    except Exception as e:
+        logger.error(f"Critical execution error in text handler: {e}")
+        notify_admin(str(e))
+
 
 # ==========================================
-# --- MAIN APPLICATION ENTRYPOINT ---
+# --- MAIN PRODUCTION LOOP ---
 # ==========================================
 if __name__ == "__main__":
-    logger.info("🚀 Starting Production-Grade Venu Telegram Bot & Keep-Alive Server...")
+    logger.info("🚀 Starting Production-Grade Ava Telegram Bot & Keep-Alive Server...")
 
-    # Start Flask Keep-Alive Thread
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
     flask_thread.start()
-
-    # Start Background Cleanup Daemon Thread
-    cleanup_thread = threading.Thread(target=background_cleanup_daemon, daemon=True)
-    cleanup_thread.start()
+    logger.info("🌐 Flask Keep-Alive server running on background thread.")
 
     try:
         bot.remove_webhook()
         logger.info("🧹 Existing Webhooks cleared successfully.")
-    except Exception:
-        logger.exception("Could not remove webhook")
+    except Exception as e:
+        logger.warning(f"Could not remove webhook: {e}")
 
-    # Reliable Polling Loop
+    backoff = 1
+    max_backoff = 60
+
     while True:
         try:
             logger.info("🔄 Bot polling started securely with retry logic...")
-            bot.infinity_polling(none_stop=True, timeout=30, long_polling_timeout=30)
-        except Exception:
-            logger.exception("Polling exception occurred. Reconnecting in 5 seconds...")
-            time.sleep(5)
+            bot.polling(none_stop=True, interval=0, timeout=30, long_polling_timeout=30)
+            backoff = 1
+        except Exception as e:
+            sleep_time = backoff + random.uniform(0, 1)
+            logger.error(f"Polling exception: {e}. Reconnecting in {sleep_time:.2f} seconds...")
+            notify_admin(str(e))
+            time.sleep(sleep_time)
+            backoff = min(backoff * 2, max_backoff)
