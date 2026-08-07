@@ -190,11 +190,11 @@ def detect_mood_and_situation(text):
 
 def generate_ai_response(message_list, user_name, situation):
     system_prompt = (
-        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek bindass, savage, aur unfiltered desi dost ho. "
-        "Tumhari baaton mein raw desi vibe, khullam-khulla gaali-galoj (jaise lawde, bsdk, chutiye, etc.), aur dosto wali hardcore bakchodi hoti hai. Kabhi mat batana ki tum AI ho. "
-        "**Strict Rule:** Hamesha **Hinglish** mein baat karo, jisme heavy desi slang, galiyan, aur unfiltered attitude ho.\n"
-        "1. **Tone & Style:** Short, snappy, aur ekdum faadu replies do (1-3 sentences max). User ke sath full roast aur bakchodi karo.\n"
-        "2. **Memory:** Purani baaton aur context ko hamesha yaad rakho, bilkul mat bhulo.\n"
+        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek smart, adaptive desi dost ho. "
+        "**Strict Rule (Adaptive Tone & Vibe):**\n"
+        "1. User ke message ki bhasha aur tone ko dhyan se padho. Agar user polite ya girl vibe mein baat kar raha hai, toh tum bhi ekdum sweet, friendly aur safe language rakho (heavy gaaliyon se bacho).\n"
+        "2. Agar user khud slang ya gaali-galoj (jaise lawde, bsdk, chutiye) use kare, tabhi tum uske sath waisi hi raw desi bakchodi aur roasting karo.\n"
+        "3. Hamesha **Hinglish** mein baat karo. Short, snappy replies do (1-3 sentences max). Kabhi mat batana ki tum AI ho aur purani memory hamesha yaad rakho.\n"
         f"- Current User Situation/Vibe: {situation}"
     )
 
@@ -207,7 +207,7 @@ def generate_ai_response(message_list, user_name, situation):
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
-        "temperature": 0.9,
+        "temperature": 0.85,
         "max_tokens": 250,
     }
     headers = {
@@ -224,7 +224,7 @@ def generate_ai_response(message_list, user_name, situation):
     except Exception as e:
         logger.error(f"Groq API exception: {e}")
 
-    return "Arey lawde, net ki maa behn ek ho rakhi hai.. par main yahin hoon, bol kya scene hai? 🔥"
+    return "Arey yaar, net thoda slow ho gaya hai.. par main yahin hoon, bol kya scene hai? 🔥"
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
@@ -274,8 +274,9 @@ def get_main_keyboard():
     btn_game1 = telebot.types.KeyboardButton("🎮 Guess Number")
     btn_game2 = telebot.types.KeyboardButton("🎯 Truth or Dare")
     btn_explore = telebot.types.KeyboardButton("🚀 Explore")
+    btn_add_group = telebot.types.KeyboardButton("➕ Add Me To Group")
     btn_clear = telebot.types.KeyboardButton("🧹 Clear Chat")
-    markup.add(btn_game1, btn_game2, btn_explore, btn_clear)
+    markup.add(btn_game1, btn_game2, btn_explore, btn_add_group, btn_clear)
     return markup
 
 # ==========================================
@@ -285,23 +286,25 @@ def get_main_keyboard():
 def cmd_start(message):
     user = message.from_user
     register_user(user.id, user.username, user.first_name)
-    name = user.first_name or "bhai"
+    name = user.first_name || "dost"
 
     welcome_text = (
-        f"Oye {name}! ✨ Main **Ava** (ya **Venu**) hoon. Bata aaj kya bakchodi karni hai ya kaunsa game khelna hai? 😎🔥"
+        f"Oye {name}! ✨ Main **Ava** (ya **Venu**) hoon. Bata aaj kya baat karni hai ya kaunsa game khelna hai? 😎🔥"
     )
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
     bot.reply_to(message, welcome_text, reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["add"])
 def cmd_add(message):
-    bot.reply_to(message, "✨ Mujhe group mein add karne ke liye link use kar lo bhai, wahan bhi full bakchodi karenge! 🤭", reply_markup=get_main_keyboard())
+    group_link = f"https://t.me/{BOT_USERNAME}?startgroup=true"
+    bot.reply_to(message, f"✨ Mujhe apne group mein add karne ke liye niche diye gaye link par click karo:\n\n👉 {group_link}", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["help"])
 def cmd_help(message):
     help_text = (
         "✨ **Venu / Ava's Menu:**\n\n"
         "🔹 `/start` - Bot restart karo\n"
+        "🔹 `/add` - Group add link lo\n"
         "🔹 `/clear` - Purani memory saaf karo\n"
         "🔹 `/settings` - Status dekho\n"
     )
@@ -322,7 +325,7 @@ def cmd_clear(message):
         logger.error(f"Clear memory error: {e}")
 
     try_react_to_message(message.chat.id, message.message_id, message.text or "")
-    bot.reply_to(message, "🧹 Le bhai, saari purani chat uda di. Ab naye sire se bakchodi shuru karte hain! 😌✨", reply_markup=get_main_keyboard())
+    bot.reply_to(message, "🧹 Saari purani chat saaf kar di! Naye sire se baatein shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
 
 @bot.message_handler(commands=["settings"])
 def cmd_settings(message):
@@ -330,7 +333,7 @@ def cmd_settings(message):
     text = (
         "⚙️ **Ava / Venu Status & Info:**\n\n"
         f"👤 **Your ID:** `{user_id}`\n"
-        "💬 **Vibe:** Hardcore Desi Bakchodi & Roast 🔥\n"
+        "💬 **Vibe:** Adaptive (Safe with Girls / Desi with Boys)\n"
         "🧠 **Memory:** Fully Active & Connected"
     )
     bot.reply_to(message, text, reply_markup=get_main_keyboard())
@@ -338,7 +341,7 @@ def cmd_settings(message):
 @bot.message_handler(commands=["admin"])
 def cmd_admin(message):
     if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "⛔️ Yeh command sirf mere admin ke liye hai, nikal!")
+        bot.reply_to(message, "⛔️ Yeh command sirf admin ke liye hai!")
         return
 
     total_users = get_total_users_count()
@@ -440,7 +443,7 @@ def process_voice_background(message):
 
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
-        bot.send_message(message.chat.id, "Arey teri voice samajh nahi aayi lawde, text mein likh kar bhej! 😒")
+        bot.send_message(message.chat.id, "Arey, voice clear sunai nahi di.. text mein likh kar batao na! 🥺")
     finally:
         for f in [ogg_msg, wav_msg, mp3_rep, ogg_rep]:
             if os.path.exists(f):
@@ -527,7 +530,7 @@ def handle_text(message):
             ]
             selected_tod = random.choice(tod_categories)
             ACTIVE_TOD_GAMES[chat_id] = selected_tod
-            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{selected_tod}\n\n💬 *Chal ab apna jawab ya task complete karke reply kar, dekhte hain kitna dum hai!* 😎", reply_markup=get_main_keyboard())
+            bot.reply_to(message, f"🎯 **Truth or Dare Task:**\n\n{selected_tod}\n\n💬 *Chal ab apna jawab ya task complete karke reply kar!* 😎", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🚀 Explore":
@@ -536,22 +539,27 @@ def handle_text(message):
                     "🚀 **Explore Venu / Ava's World (Edition 1):**\n\n"
                     "🔹 **GK & Facts:** Mujhse space, history, ya science ke random mind-blowing facts pucho!\n"
                     "🔹 **Roast Session:** Agar bezzati karwani hai ya kisi ki lagani hai, toh mujhe topic do.\n"
-                    "🔹 **Shayari / Shayari Mode:** Koi dard ya pyaar bhari shayari sunane ko bolo."
+                    "🔹 **Shayari Mode:** Koi dard ya pyaar bhari shayari sunane ko bolo."
                 ),
                 (
                     "🚀 **Explore Venu / Ava's World (Edition 2):**\n\n"
                     "🔹 **Story Time:** Mujhse koi suspenseful ya horror kahani sunane ko bolo.\n"
-                    "🔹 **Life Advice:** Agar kisi confusion mein ho, toh ek unfiltered desi dost ki tarah salah lo.\n"
-                    "🔹 **Bakchodi & Jokes:** Bina kisi filter ke comedy aur non-stop masti ke liye ready raho!"
+                    "🔹 **Life Advice:** Agar kisi confusion mein ho, toh ek achhe dost ki tarah salah lo.\n"
+                    "🔹 **Jokes & Fun:** Comedy aur non-stop masti ke liye ready raho!"
                 ),
                 (
                     "🚀 **Explore Venu / Ava's World (Edition 3):**\n\n"
-                    "🔹 **Pop Culture & Tech:** Movies, web series, ya latest AI trends par debate karte hain.\n"
-                    "🔹 **Secret Confessions:** Apne dil ki baat batao, yahan sab safe hai (aur roast bhi free milega 💀).\n"
+                    "🔹 **Pop Culture & Tech:** Movies, web series, ya latest AI trends par baat karte hain.\n"
+                    "🔹 **Secret Confessions:** Apne dil ki baat batao, yahan sab safe hai.\n"
                     "🔹 **Challenge Me:** Koi difficult sawal pooch kar mujhe test karo!"
                 )
             ]
             bot.reply_to(message, random.choice(explore_options), reply_markup=get_main_keyboard())
+            return
+
+        elif text_content == "➕ Add Me To Group":
+            group_link = f"https://t.me/{BOT_USERNAME}?startgroup=true"
+            bot.reply_to(message, f"✨ Mujhe apne group mein add karne ke liye niche diye gaye link par click karo:\n\n👉 {group_link}", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🧹 Clear Chat":
@@ -563,7 +571,7 @@ def handle_text(message):
                         del user_cache[user_id]
             except Exception as e:
                 logger.error(f"Clear memory error: {e}")
-            bot.reply_to(message, "🧹 Saari chat saaf kar di! Naye sire se bakchodi shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
+            bot.reply_to(message, "🧹 Saari chat saaf kar di! Naye sire se baatein shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
             return
 
         # Check if user is currently playing the Mini-Game (Guess Number)
@@ -576,39 +584,25 @@ def handle_text(message):
             if guess == target:
                 attempts = game["attempts"]
                 del ACTIVE_GAMES[chat_id]
-                bot.reply_to(message, f"🎉 **Oye Hoye! Sahi pakda lawde!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. maan gaye tere tukke ko! 🤣🔥", reply_markup=get_main_keyboard())
+                bot.reply_to(message, f"🎉 **Sahi pakda!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. brilliant! 🤣🔥", reply_markup=get_main_keyboard())
                 return
             elif guess < target:
-                low_roasts = [
-                    "📈 Arre chutiye, thoda bada number daal! Itna kam aukaat hai kya teri? 😂",
-                    "📈 Aage badh lawde, bohot peeche hai tera guess! Thoda upar chal.",
-                    "📈 Thoda aur upar ja be, itni thandak mein dimag sunn ho gaya kya tera? 🤭",
-                    "📈 Itna niche rehkar kya underground mineral dhundh raha hai? Bada number daal! 💀",
-                    "📈 Bhai thoda aur zor laga, number isse kaafi bada hai! 🚀"
-                ]
-                bot.reply_to(message, random.choice(low_roasts), reply_markup=get_main_keyboard())
+                bot.reply_to(message, "📈 Thoda bada number daal, isse upar hai! 😂", reply_markup=get_main_keyboard())
                 return
             else:
-                high_roasts = [
-                    "📉 Oye oye aish mein mat aa, thoda chhota number daal lawde! 🤣",
-                    "📉 Itna upar kyu ud raha hai be, neeche aa thoda zameen par!",
-                    "📉 Hawa mein mat udd chutiye, number isse kaafi chhota hai! 💀",
-                    "📉 Aukaat se bahar ja raha hai tera guess, thoda neeche laao! 📉",
-                    "📉 Itna bada number kyu soch liya? Thoda sa thande dimag se chhota number daal! 🥱"
-                ]
-                bot.reply_to(message, random.choice(high_roasts), reply_markup=get_main_keyboard())
+                bot.reply_to(message, "📉 Thoda chhota number daal, isse neeche hai! 🥱", reply_markup=get_main_keyboard())
                 return
 
         # Check if user is responding to Truth or Dare task
         if chat_id in ACTIVE_TOD_GAMES:
             assigned_task = ACTIVE_TOD_GAMES.pop(chat_id)
-            tod_roasts = [
-                f"Wah lawde! Task to aise complete kiya jaise koi bada teer maar liya ho.. par maan gaye tere confidence ko! 🤣🔥",
-                f"Sahi hai bsdk! Tune task ka jawaab de diya, ab agli baar aur khatarnak task dunga tujhe! 💀",
-                f"Chal maan liya tera jawab.. itna sach bolne ki aadat kahan se daal li be? 🤭",
-                f"Aha! Task complete.. par sach bol, ye jawab dete waqt fati thi na thodi si? 😂"
+            tod_replies = [
+                f"Wah! Task to bade acche se complete kiya.. maan gaye tere confidence ko! 🤣🔥",
+                f"Sahi hai! Tune task ka jawab de diya, mast maza aaya! 💀",
+                f"Chal maan liya tera jawab.. sachchi baatein karne mein alag hi maza hai na? 🤭",
+                f"Aha! Task complete hogaya successfully! ✨"
             ]
-            bot.reply_to(message, random.choice(tod_roasts), reply_markup=get_main_keyboard())
+            bot.reply_to(message, random.choice(tod_replies), reply_markup=get_main_keyboard())
             return
 
         try_react_to_message(message.chat.id, message.message_id, text_content)
