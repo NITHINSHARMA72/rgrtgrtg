@@ -513,23 +513,47 @@ def handle_text(message):
             return
 
         elif text_content == "🎯 Truth or Dare":
-            tod_options = [
-                "Truth: Bata tu ne apni life mein sabse bada jhooth kya bola hai apne ghar walon ko? 🤨",
-                "Dare: Apne kisi bhi friend ko voice note bhej kar bol 'Mujhe tujhse pyaar ho gaya hai' aur screenshot bhej! 🤣",
-                "Truth: Tera pehla crush kaun tha aur abhi wo kahan hai? 👀",
-                "Dare: Ek aisi embarrassing photo ya moment bata jo aaj tak kisi ko nahi bataya! 💀"
+            tod_categories = [
+                # Truths - Desi & Savage
+                "🔥 **Truth:** Bata tu ne apni life mein sabse bada jhooth kya bola hai apne ghar walon ko? 🤨",
+                "🔥 **Truth:** Tera pehla crush kaun tha aur abhi wo kahan hai? 👀",
+                "🔥 **Truth:** Aaj tak ka sabse ganda wala 'kaand' ya pakda jaane wala moment kaunsa hai tera? 💀",
+                "🔥 **Truth:** Agar tujhe ek din ke liye opposite gender banne ka mauka mile, toh sabse pehle kya karega/karegi? 🤫",
+                "🔥 **Truth:** Tera koi aisa secret jo tere best friend ko bhi nahi pata? 🤐",
+                
+                # Dares - Fun & Crazy
+                "⚡ **Dare:** Apne kisi bhi friend ko voice note bhej kar bol — 'Mujhe tujhse pyaar ho gaya hai' aur screenshot bhej! 🤣",
+                "⚡ **Dare:** Apne phone ki gallery ka 10th photo bina kisi context ke group ya kisi dost ko bhej! 📸",
+                "⚡ **Dare:** Agle 10 minutes tak tu jo bhi message karega, uske aakhiri mein 'UwU 🥺' lagana padega! ✨",
+                "⚡ **Dare:** Apne last call log ka screenshot bhej (jisme naam dikhe ya blur karde agar sharam aaye)! 📞",
+                "⚡ **Dare:** Apni crush ya ex ka naam chat mein type karke turant delete kar de! 🏃‍♂️"
             ]
-            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{random.choice(tod_options)}", reply_markup=get_main_keyboard())
+            selected_tod = random.choice(tod_categories)
+            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{selected_tod}", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🚀 Explore":
-            explore_text = (
-                "🚀 **Explore Venu / Ava's World:**\n\n"
-                "🔹 Mujhse kuch bhi general knowledge ya random facts pucho.\n"
-                "🔹 Roast ya comedy ke liye bolo, full bakchodi karenge!\n"
-                "🔹 Games khelne ke liye niche wale buttons use karo ya seedhe baat karo."
-            )
-            bot.reply_to(message, explore_text, reply_markup=get_main_keyboard())
+            explore_options = [
+                (
+                    "🚀 **Explore Venu / Ava's World (Edition 1):**\n\n"
+                    "🔹 **GK & Facts:** Mujhse space, history, ya science ke random mind-blowing facts pucho!\n"
+                    "🔹 **Roast Session:** Agar bezzati karwani hai ya kisi ki lagani hai, toh mujhe topic do.\n"
+                    "🔹 **Shayari / Shayari Mode:** Koi dard ya pyaar bhari shayari sunane ko bolo."
+                ),
+                (
+                    "🚀 **Explore Venu / Ava's World (Edition 2):**\n\n"
+                    "🔹 **Story Time:** Mujhse koi suspenseful ya horror kahani sunane ko bolo.\n"
+                    "🔹 **Life Advice:** Agar kisi confusion mein ho, toh ek unfiltered desi dost ki tarah salah lo.\n"
+                    "🔹 **Bakchodi & Jokes:** Bina kisi filter ke comedy aur non-stop masti ke liye ready raho!"
+                ),
+                (
+                    "🚀 **Explore Venu / Ava's World (Edition 3):**\n\n"
+                    "🔹 **Pop Culture & Tech:** Movies, web series, ya latest AI trends par debate karte hain.\n"
+                    "🔹 **Secret Confessions:** Apne dil ki baat batao, yahan sab safe hai (aur roast bhi free milega 💀).\n"
+                    "🔹 **Challenge Me:** Koi difficult sawal pooch kar mujhe test karo!"
+                )
+            ]
+            bot.reply_to(message, random.choice(explore_options), reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🧹 Clear Chat":
@@ -557,10 +581,24 @@ def handle_text(message):
                 bot.reply_to(message, f"🎉 **Oye Hoye! Sahi pakda lawde!** 🎉\nSirf `{attempts}` attempts mein number (`{target}`) guess kar liya.. maan gaye tere tukke ko! 🤣🔥", reply_markup=get_main_keyboard())
                 return
             elif guess < target:
-                bot.reply_to(message, "📈 Arre chutiye, thoda bada number daal! Itna kam aukaat hai kya teri? 😂", reply_markup=get_main_keyboard())
+                low_roasts = [
+                    "📈 Arre chutiye, thoda bada number daal! Itna kam aukaat hai kya teri? 😂",
+                    "📈 Aage badh lawde, bohot peeche hai tera guess! Thoda upar chal.",
+                    "📈 Thoda aur upar ja be, itni thandak mein dimag sunn ho gaya kya tera? 🤭",
+                    "📈 Itna niche rehkar kya underground mineral dhundh raha hai? Bada number daal! 💀",
+                    "📈 Bhai thoda aur zor laga, number isse kaafi bada hai! 🚀"
+                ]
+                bot.reply_to(message, random.choice(low_roasts), reply_markup=get_main_keyboard())
                 return
             else:
-                bot.reply_to(message, "📉 Oye oye aish mein mat aa, thoda chhota number daal lawde! 🤣", reply_markup=get_main_keyboard())
+                high_roasts = [
+                    "📉 Oye oye aish mein mat aa, thoda chhota number daal lawde! 🤣",
+                    "📉 Itna upar kyu ud raha hai be, neeche aa thoda zameen par!",
+                    "📉 Hawa mein mat udd chutiye, number isse kaafi chhota hai! 💀",
+                    "📉 Aukaat se bahar ja raha hai tera guess, thoda neeche laao! 📉",
+                    "📉 Itna bada number kyu soch liya? Thoda sa thande dimag se chhota number daal! 🥱"
+                ]
+                bot.reply_to(message, random.choice(high_roasts), reply_markup=get_main_keyboard())
                 return
 
         try_react_to_message(message.chat.id, message.message_id, text_content)
