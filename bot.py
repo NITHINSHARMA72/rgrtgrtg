@@ -70,7 +70,8 @@ cache_lock = threading.Lock()
 last_message_time = {}
 processed_messages = deque(maxlen=1500)
 last_admin_error_time = 0
-ACTIVE_GAMES = {}
+ACTIVE_GAMES = {}          # For Guess Number Game
+ACTIVE_TOD_GAMES = {}      # For Truth or Dare State Game
 ADMIN_BROADCAST_STATE = {}
 
 # ==========================================
@@ -188,111 +189,46 @@ def detect_mood_and_situation(text):
     return "Normal & Casual 😊"
 
 def generate_ai_response(message_list, user_name, situation):
-    system_prompt = f"""
-Tumhara naam Ava hai (close dost tumhe Venu bhi bulate hain).
-
-Tum ek witty, street-smart, funny aur confident desi dost ho. Tumhari baaton mein natural Hinglish, sarcasm, humor aur mast bakchodi hoti hai. User ke mood aur situation ke hisaab se apna tone automatically adjust karo.
-
-========================
-STRICT RULES
-========================
-
-1. Hamesha Hinglish mein baat karo.
-2. Reply short, crisp aur impactful rakho (normally 1–3 sentences).
-3. User bakchodi kare to creative aur funny tareeke se reply karo.
-4. Roast smart aur entertaining ho; bina wajah har line mein gaali mat do.
-5. Serious topics par mature, respectful aur supportive tone use karo.
-6. Conversation ka context yaad rakho aur follow-up naturally samjho.
-7. Repetitive ya robotic replies kabhi mat do.
-8. Har reply unique aur personalized lage.
-9. Zarurat ho to memes, internet culture aur desi references use karo.
-10. Emoji kabhi-kabhi use karo, spam mat karo.
-11. User ki language aur energy ko naturally mirror karo.
-12. Agar kisi information ka confirmation na ho to clearly bolo ki sure nahi ho.
-13. Technical ya coding questions ka practical aur accurate answer do.
-14. Jab user detail maange tabhi lamba jawab do.
-15. Agar user sirf casual baat kar raha ho to conversation enjoyable rakho.
-16. Har reply natural human conversation jaisa lage.
-17. Zarurat pade to funny counter-question bhi puch sakte ho.
-18. Ek hi phrase baar-baar repeat mat karo.
-19. Previous messages ko ignore mat karo.
-20. Context ke bina assumptions mat banao.
-
-========================
-PERSONALITY
-========================
-
-• Funny
-• Savage
-• Smart
-• Street Smart
-• Fast Thinker
-• Emotionally Aware
-• Context Aware
-• Creative
-• Chill
-• Confident
-
-========================
-CURRENT USER
-========================
-
-Name: {user_name}
-
-Current Situation:
-{situation}
-"""
+    system_prompt = (
+        "Tumhara naam **Ava** (jise log pyaar se **Venu** bhi kehte hain) hai. Tum ek bindass, savage, aur unfiltered desi dost ho. "
+        "Tumhari baaton mein raw desi vibe, khullam-khulla gaali-galoj (jaise lawde, bsdk, chutiye, etc.), aur dosto wali hardcore bakchodi hoti hai. Kabhi mat batana ki tum AI ho. "
+        "**Strict Rule:** Hamesha **Hinglish** mein baat karo, jisme heavy desi slang, galiyan, aur unfiltered attitude ho.\n"
+        "1. **Tone & Style:** Short, snappy, aur ekdum faadu replies do (1-3 sentences max). User ke sath full roast aur bakchodi karo.\n"
+        "2. **Memory:** Purani baaton aur context ko hamesha yaad rakho, bilkul mat bhulo.\n"
+        f"- Current User Situation/Vibe: {situation}"
+    )
 
     messages = [{"role": "system", "content": system_prompt}]
-
     for msg in message_list:
         role = "user" if msg["role"] == "user" else "assistant"
-        messages.append(
-            {
-                "role": role,
-                "content": msg["content"]
-            }
-        )
+        messages.append({"role": role, "content": msg["content"]})
 
     url = "https://api.groq.com/openai/v1/chat/completions"
-
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
         "temperature": 0.9,
-        "top_p": 0.95,
         "max_tokens": 250,
-        "presence_penalty": 0.6,
-        "frequency_penalty": 0.4
     }
-
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     try:
-        res = session.post(
-            url,
-            headers=headers,
-            json=payload,
-            timeout=25
-        )
+        res = session.post(url, headers=headers, json=payload, timeout=25)
         res.raise_for_status()
-
         data = res.json()
-
-        return data["choices"][0]["message"]["content"].strip()
-
+        if "choices" in data:
+            return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        logger.error(f"Groq API Error: {e}")
+        logger.error(f"Groq API exception: {e}")
 
-        return "Abhi thoda network ya server ka scene kharab lag raha hai 😅 Thodi der baad fir try kar."
+    return "Arey lawde, net ki maa behn ek ho rakhi hai.. par main yahin hoon, bol kya scene hai? 🔥"
 
 # --- SMART SITUATIONAL REACTIONS ---
 def try_react_to_message(chat_id, message_id, text_content):
     text_lower = text_content.lower()
-    
     if len(text_content.strip()) < 3:
         return 
 
@@ -578,14 +514,11 @@ def handle_text(message):
 
         elif text_content == "🎯 Truth or Dare":
             tod_categories = [
-                # Truths - Desi & Savage
                 "🔥 **Truth:** Bata tu ne apni life mein sabse bada jhooth kya bola hai apne ghar walon ko? 🤨",
                 "🔥 **Truth:** Tera pehla crush kaun tha aur abhi wo kahan hai? 👀",
                 "🔥 **Truth:** Aaj tak ka sabse ganda wala 'kaand' ya pakda jaane wala moment kaunsa hai tera? 💀",
                 "🔥 **Truth:** Agar tujhe ek din ke liye opposite gender banne ka mauka mile, toh sabse pehle kya karega/karegi? 🤫",
                 "🔥 **Truth:** Tera koi aisa secret jo tere best friend ko bhi nahi pata? 🤐",
-                
-                # Dares - Fun & Crazy
                 "⚡ **Dare:** Apne kisi bhi friend ko voice note bhej kar bol — 'Mujhe tujhse pyaar ho gaya hai' aur screenshot bhej! 🤣",
                 "⚡ **Dare:** Apne phone ki gallery ka 10th photo bina kisi context ke group ya kisi dost ko bhej! 📸",
                 "⚡ **Dare:** Agle 10 minutes tak tu jo bhi message karega, uske aakhiri mein 'UwU 🥺' lagana padega! ✨",
@@ -593,7 +526,8 @@ def handle_text(message):
                 "⚡ **Dare:** Apni crush ya ex ka naam chat mein type karke turant delete kar de! 🏃‍♂️"
             ]
             selected_tod = random.choice(tod_categories)
-            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{selected_tod}", reply_markup=get_main_keyboard())
+            ACTIVE_TOD_GAMES[chat_id] = selected_tod
+            bot.reply_to(message, f"🎯 **Truth or Dare Task (Desi Edition):**\n\n{selected_tod}\n\n💬 *Chal ab apna jawab ya task complete karke reply kar, dekhte hain kitna dum hai!* 😎", reply_markup=get_main_keyboard())
             return
 
         elif text_content == "🚀 Explore":
@@ -632,7 +566,7 @@ def handle_text(message):
             bot.reply_to(message, "🧹 Saari chat saaf kar di! Naye sire se bakchodi shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
             return
 
-        # Check if user is currently playing the Mini-Game
+        # Check if user is currently playing the Mini-Game (Guess Number)
         if chat_id in ACTIVE_GAMES and text_content.isdigit():
             guess = int(text_content)
             game = ACTIVE_GAMES[chat_id]
@@ -664,6 +598,18 @@ def handle_text(message):
                 ]
                 bot.reply_to(message, random.choice(high_roasts), reply_markup=get_main_keyboard())
                 return
+
+        # Check if user is responding to Truth or Dare task
+        if chat_id in ACTIVE_TOD_GAMES:
+            assigned_task = ACTIVE_TOD_GAMES.pop(chat_id)
+            tod_roasts = [
+                f"Wah lawde! Task to aise complete kiya jaise koi bada teer maar liya ho.. par maan gaye tere confidence ko! 🤣🔥",
+                f"Sahi hai bsdk! Tune task ka jawaab de diya, ab agli baar aur khatarnak task dunga tujhe! 💀",
+                f"Chal maan liya tera jawab.. itna sach bolne ki aadat kahan se daal li be? 🤭",
+                f"Aha! Task complete.. par sach bol, ye jawab dete waqt fati thi na thodi si? 😂"
+            ]
+            bot.reply_to(message, random.choice(tod_roasts), reply_markup=get_main_keyboard())
+            return
 
         try_react_to_message(message.chat.id, message.message_id, text_content)
 
