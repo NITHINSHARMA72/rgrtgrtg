@@ -8,7 +8,9 @@
 # - Guess Number / Truth or Dare / Riddle / Roast Battle
 # - Roast Mode / Bakchodi Mode
 # - Calculator with safe AST evaluation
-# - Reply keyboard, Explore, Profile, Clear Chat
+# - Reply keyboard, Add-to-Group, Profile, Clear Chat
+# - Help, Stats, Memory viewer, Joke, Shayari, Fun Zone, Dice, Coin, Choose
+# - Better conversational prompting and natural follow-up chat
 # - Private-chat + group mention/reply filtering
 # - Voice input -> speech recognition -> AI -> optional TTS reply
 # - Admin broadcast / refresh
@@ -34,6 +36,7 @@ from logging.handlers import RotatingFileHandler
 import operator
 import os
 import random
+import re
 import tempfile
 import threading
 import time
@@ -214,6 +217,7 @@ user_recent_replies = {}
 ACTIVE_GAME_SESSIONS = {}
 ROAST_MODE_USERS = set()
 TTS_USERS = set()
+USER_ACTIVITY = {}
 
 
 # ============================================================
@@ -749,8 +753,14 @@ def get_main_keyboard():
         types.KeyboardButton("🎯 Truth or Dare"),
         types.KeyboardButton("🧩 Riddle Battle"),
         types.KeyboardButton("🔥 Roast War"),
+        types.KeyboardButton("😂 Joke"),
+        types.KeyboardButton("❤️ Shayari"),
+        types.KeyboardButton("🎲 Fun Zone"),
+        types.KeyboardButton("📊 My Stats"),
         types.KeyboardButton("👤 View Profile"),
         types.KeyboardButton("➕ Add Me In Group"),
+        types.KeyboardButton("💬 Talk To Venu"),
+        types.KeyboardButton("ℹ️ Help"),
         types.KeyboardButton("🧹 Clear Chat"),
     )
 
@@ -1002,7 +1012,127 @@ def strip_bot_mention(text):
 
 
 # ============================================================
-# PROFILE / EXPLORE
+# EXTRA FUN / CHAT FEATURES
+# ============================================================
+
+JOKES = [
+    "Bhai mera future itna bright hai ki phone ki brightness auto low ho gayi 😂",
+    "Maine diet start ki thi... phir samose ne aankhon mein aankhein daal di. 😭",
+    "Life mein do cheezein fast hain: WiFi kabhi nahi, aur salary ka khatam hona hamesha. 💀",
+    "Mera motivation aur Monday ki dosti school ke crush jaisi hai—sirf door se. 😂",
+    "Padhai ka sabse bada enemy distraction nahi, '5 minute aur' hai. 😭",
+]
+
+SHAYARI = [
+    "Dil se nikli baat ko lafzon ka sahara kya,\nTu online ho toh notification se pyara kya. ❤️",
+    "Chai garam, mausam suhana,\nDost tu mil jaaye toh scene mastana. ☕❤️",
+    "Zindagi chhoti si hai, tension badi bana rakhi hai,\nHans le bhai, duniya ne kaunsi guarantee de rakhi hai. 😌",
+    "Tere reply ka intezaar bhi kamaal karta hai,\nEk 'hmm' poora paragraph barbaad karta hai. 😂",
+]
+
+FUN_PROMPTS = [
+    "🎯 Aaj ka challenge: kisi dost ko bina context 'mission successful' bhej.",
+    "🧠 Mini challenge: 10 seconds mein 5 fruits ke naam bol.",
+    "😂 Challenge: apne last used emoji se ek sentence bana.",
+    "🎭 Challenge: apni life ko ek movie title de.",
+    "⚡ Rapid fire: chai ya coffee? Android ya iPhone? Night owl ya early bird?",
+]
+
+CHOICE_REPLIES = [
+    "Bhai obvious hai — **{choice}** 😎",
+    "Mera vote **{choice}** ko. Ab dekhte hain tera choice kitna dangerous hai 😂",
+    "**{choice}**. Final answer. Lock kar diya 🔒🔥",
+]
+
+
+def send_help(message):
+    bot.reply_to(
+        message,
+        "ℹ️ **Venu Features**\n\n"
+        "💬 Natural Hinglish AI chat + long-term Supabase memory\n"
+        "🎮 Guess, Truth/Dare, Riddle, Roast Battle\n"
+        "😂 Joke / ❤️ Shayari / 🎲 Fun Zone\n"
+        "🔥 /roast + /unroast\n"
+        "🎙️ /voice + /novoice for voice replies\n"
+        "📊 /stats for activity\n"
+        "🧠 /memory for saved profile summary\n"
+        "🆔 /id for Telegram IDs\n"
+        "🏓 /ping for bot health\n"
+        "➕ Add me to a group and mention @Chatbotgebot\n\n"
+        "Group mein Venu tab reply karega jab mention ya reply kiya jayega.",
+        reply_markup=get_main_keyboard(),
+    )
+
+
+def send_stats(message):
+    user_id = message.from_user.id
+    today = time.strftime("%Y-%m-%d")
+    rows = db.request("GET", f"daily_stats?user_id=eq.{user_id}&order=date.desc&limit=7") or []
+    today_row = next((r for r in rows if r.get("date") == today), None)
+    total_messages = sum(int(r.get("messages_sent", 0) or 0) for r in rows)
+    total_games = sum(int(r.get("games_played", 0) or 0) for r in rows)
+    bot.reply_to(
+        message,
+        "📊 **Venu Stats**\n\n"
+        f"📅 Today: {today_row.get('messages_sent', 0) if today_row else 0} messages\n"
+        f"🎮 Today games: {today_row.get('games_played', 0) if today_row else 0}\n"
+        f"📈 Last 7 days messages: {total_messages}\n"
+        f"🏆 Last 7 days games: {total_games}\n"
+        f"🔥 Roast Mode: {'ON' if user_id in ROAST_MODE_USERS else 'OFF'}\n"
+        f"🎙️ Voice: {'ON' if user_id in TTS_USERS else 'OFF'}",
+        reply_markup=get_main_keyboard(),
+    )
+
+
+def send_memory_summary(message):
+    memory = get_user_memory(message.from_user.id, message.from_user.first_name or "Dost")
+    profile = memory["profile"]
+    summary = memory.get("summary") or "No long-term summary yet."
+    bot.reply_to(
+        message,
+        "🧠 **What Venu remembers**\n\n"
+        f"Name: {profile.get('name')}\n"
+        f"Game: {profile.get('favorite_game')}\n"
+        f"Movie: {profile.get('favorite_movie')}\n"
+        f"Hobbies: {profile.get('hobbies')}\n"
+        f"Relationship: {profile.get('relationship_status')}\n\n"
+        f"💭 Context: {summary}",
+        reply_markup=get_main_keyboard(),
+    )
+
+
+def send_fun_zone(message):
+    bot.reply_to(
+        message,
+        random.choice(FUN_PROMPTS) + "\n\n" + random.choice(JOKES),
+        reply_markup=get_main_keyboard(),
+    )
+
+
+def send_joke(message):
+    bot.reply_to(message, "😂 " + random.choice(JOKES), reply_markup=get_main_keyboard())
+
+
+def send_shayari(message):
+    bot.reply_to(message, random.choice(SHAYARI), reply_markup=get_main_keyboard())
+
+
+def send_add_me_in_group(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "➕ Add Venu To Group",
+        url=f"https://t.me/{BOT_USERNAME}?startgroup=true"
+    ))
+    bot.reply_to(
+        message,
+        "➕ **Add Venu In Group**\n\n"
+        "Button dabao, group select karo aur Venu ko add kar do. 😎🔥\n\n"
+        "Group mein mujhe **@Chatbotgebot** mention karo ya meri message ko reply karo.",
+        reply_markup=markup,
+    )
+
+# ============================================================
+# PROFILE / GROUP / MEMORY
 # ============================================================
 
 def send_profile(message):
@@ -1034,15 +1164,6 @@ def send_profile(message):
     except Exception:
         logger.exception("Profile command execution error")
 
-
-def send_add_me_in_group(message):
-    bot.reply_to(
-        message,
-        "➕ **Add Me In Group**\n\n"
-        "Mujhe apne Telegram group mein add karo aur group mein **@Chatbotgebot** mention karke baat karo! 😎🔥\n\n"
-        "📌 Group mein add karne ke baad mujhe mention/reply karna.",
-        reply_markup=get_main_keyboard(),
-    )
 
 # ============================================================
 # TTS
@@ -1310,6 +1431,85 @@ def cmd_novoice(message):
 
 
 # ============================================================
+# EXTRA COMMANDS
+# ============================================================
+
+@bot.message_handler(commands=["help"])
+def cmd_help(message):
+    send_help(message)
+
+
+@bot.message_handler(commands=["stats"])
+def cmd_stats(message):
+    send_stats(message)
+
+
+@bot.message_handler(commands=["memory"])
+def cmd_memory(message):
+    send_memory_summary(message)
+
+
+@bot.message_handler(commands=["id"])
+def cmd_id(message):
+    bot.reply_to(
+        message,
+        f"🆔 User ID: `{message.from_user.id}`\n"
+        f"💬 Chat ID: `{message.chat.id}`\n"
+        f"👥 Chat type: `{message.chat.type}`",
+    )
+
+
+@bot.message_handler(commands=["ping"])
+def cmd_ping(message):
+    started = time.perf_counter()
+    sent = bot.reply_to(message, "🏓 Pinging Venu...")
+    ms = round((time.perf_counter() - started) * 1000, 1)
+    try:
+        bot.edit_message_text(
+            f"🏓 **Pong!** {ms} ms\n🤖 Venu is online and ready.",
+            message.chat.id,
+            sent.message_id,
+        )
+    except Exception:
+        pass
+
+
+@bot.message_handler(commands=["joke"])
+def cmd_joke(message):
+    send_joke(message)
+
+
+@bot.message_handler(commands=["shayari"])
+def cmd_shayari(message):
+    send_shayari(message)
+
+
+@bot.message_handler(commands=["fun"])
+def cmd_fun(message):
+    send_fun_zone(message)
+
+
+@bot.message_handler(commands=["choose"])
+def cmd_choose(message):
+    raw = message.text.partition(" ")[2].strip()
+    choices = [x.strip() for x in re.split(r"[,|]", raw) if x.strip()]
+    if len(choices) < 2:
+        bot.reply_to(message, "🎲 Usage: /choose chai, coffee, cold drink")
+        return
+    bot.reply_to(message, random.choice(CHOICE_REPLIES).format(choice=random.choice(choices)))
+
+
+@bot.message_handler(commands=["coin"])
+def cmd_coin(message):
+    bot.reply_to(message, "🪙 " + random.choice(["Heads! 🗣️", "Tails! 🪙"]))
+
+
+@bot.message_handler(commands=["dice"])
+def cmd_dice(message):
+    bot.reply_to(message, f"🎲 Dice: **{random.randint(1, 6)}**")
+
+
+# ============================================================
 # MAIN TEXT HANDLER
 # ============================================================
 
@@ -1323,6 +1523,8 @@ def handle_text_message(message):
 
         user_id = message.from_user.id
         chat_id = message.chat.id
+        with state_lock:
+            USER_ACTIVITY[user_id] = time.time()
 
         text_content = strip_bot_mention(
             message.text or ""
@@ -1365,6 +1567,30 @@ def handle_text_message(message):
 
         if text_content == "🔥 Roast War":
             handle_game_manager(message, "roast_battle")
+            return
+
+        if text_content == "😂 Joke":
+            send_joke(message)
+            return
+
+        if text_content == "❤️ Shayari":
+            send_shayari(message)
+            return
+
+        if text_content == "🎲 Fun Zone":
+            send_fun_zone(message)
+            return
+
+        if text_content == "📊 My Stats":
+            send_stats(message)
+            return
+
+        if text_content == "💬 Talk To Venu":
+            bot.reply_to(message, "💬 Bol bhai, main sun raha hoon. Aaj ka scene kya hai? 😎", reply_markup=get_main_keyboard())
+            return
+
+        if text_content == "ℹ️ Help":
+            send_help(message)
             return
 
         if text_content == "👤 View Profile":
@@ -1634,6 +1860,7 @@ def background_cleanup_daemon():
                         user_id,
                         None,
                     )
+                    USER_ACTIVITY.pop(user_id, None)
 
             logger.info(
                 "Background cleanup daemon executed successfully."
@@ -1659,7 +1886,7 @@ def background_cleanup_daemon():
 
 def main():
     logger.info(
-        "🚀 Starting merged Venu AI Telegram Bot..."
+        "🚀 Starting ULTIMATE Venu AI Telegram Bot — enhanced chat, games, memory, fun and group mode..."
     )
 
     flask_thread = threading.Thread(
