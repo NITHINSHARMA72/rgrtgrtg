@@ -753,6 +753,7 @@ def get_main_keyboard():
         types.KeyboardButton("🎯 Truth or Dare"),
         types.KeyboardButton("🧩 Riddle Battle"),
         types.KeyboardButton("🔥 Roast War"),
+        types.KeyboardButton("❌ Skip Game"),
         types.KeyboardButton("😂 Joke"),
         types.KeyboardButton("❤️ Shayari"),
         types.KeyboardButton("🎲 Fun Zone"),
@@ -842,6 +843,24 @@ def handle_game_manager(message, game_type):
                 f"🔥 Roast Battle:\n{roast}\n\n"
                 "Ab solid comeback de!",
             )
+
+
+def cancel_active_game(user_id):
+    """Cancel any active game so the next message is handled as normal chat."""
+    with state_lock:
+        return ACTIVE_GAME_SESSIONS.pop(user_id, None) is not None
+
+
+def is_game_skip_command(text_content):
+    """Words/phrases that mean the user wants to leave the current game."""
+    normalized = " ".join((text_content or "").lower().strip().split())
+    return normalized in {
+        "skip", "skip game", "cancel", "cancel game", "exit", "exit game",
+        "quit", "quit game", "stop", "stop game", "end game", "close game",
+        "game band", "game bandh", "game chhod", "game chhodo", "nahi khelna",
+        "nahi khelna hai", "bas", "rehne do", "chhodo", "chod do",
+        "normal chat", "talk", "❌ skip game",
+    }
 
 
 def process_active_game(message, user_id, text_content):
@@ -1604,6 +1623,17 @@ def handle_text_message(message):
         if text_content == "🧹 Clear Chat":
             cmd_clear(message)
             return
+
+        # Skip/cancel active game. The game is closed immediately,
+        # and the bot returns to normal conversation mode.
+        if is_game_skip_command(text_content):
+            if cancel_active_game(user_id):
+                bot.reply_to(
+                    message,
+                    "👍 Theek hai bhai, game cancel kar diya. Ab normal Venu mode ON 😎💬 Bata kya scene hai?",
+                    reply_markup=get_main_keyboard(),
+                )
+                return
 
         # Active game
         if process_active_game(
