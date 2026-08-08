@@ -59,8 +59,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "gsk_QpV3lRdWKSOwLHxA50dsWGdyb3FYJpaWmb
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hhelxewgwuqcloofyeyw.supabase.co").strip().rstrip("/")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54").strip()
 
-ADMIN_ID = int(os.getenv("ADMIN_ID", "8793053750"))
-BOT_USERNAME = os.getenv("BOT_USERNAME", "Chatbotgebot").strip().lstrip("@")
+ADMIN_ID = 8793053750
+BOT_USERNAME = "Chatbotgebot"
 MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
 PORT = int(os.getenv("PORT", "10000"))
@@ -750,7 +750,7 @@ def get_main_keyboard():
         types.KeyboardButton("🧩 Riddle Battle"),
         types.KeyboardButton("🔥 Roast War"),
         types.KeyboardButton("👤 View Profile"),
-        types.KeyboardButton("🚀 Explore"),
+        types.KeyboardButton("➕ Add Me In Group"),
         types.KeyboardButton("🧹 Clear Chat"),
     )
 
@@ -1035,23 +1035,14 @@ def send_profile(message):
         logger.exception("Profile command execution error")
 
 
-def send_explore(message):
+def send_add_me_in_group(message):
     bot.reply_to(
         message,
-        "🚀 Venu Features\n\n"
-        "🤖 Groq AI + consistent persona\n"
-        "🧠 Supabase long-term memory\n"
-        "🎮 50 Truth/Dare/Riddle/Roast items each\n"
-        "🔥 Roast Mode / Bakchodi Mode\n"
-        "🧮 Safe calculator\n"
-        "🎙️ Voice input + optional TTS\n"
-        "👥 Group mention/reply support\n"
-        "🛡️ Retry + logging + rate protection\n"
-        "🌐 Flask keep-alive\n"
-        "👑 Admin broadcast / refresh",
+        "➕ **Add Me In Group**\n\n"
+        "Mujhe apne Telegram group mein add karo aur group mein **@Chatbotgebot** mention karke baat karo! 😎🔥\n\n"
+        "📌 Group mein add karne ke baad mujhe mention/reply karna.",
         reply_markup=get_main_keyboard(),
     )
-
 
 # ============================================================
 # TTS
@@ -1380,8 +1371,8 @@ def handle_text_message(message):
             send_profile(message)
             return
 
-        if text_content == "🚀 Explore":
-            send_explore(message)
+        if text_content == "➕ Add Me In Group":
+            send_add_me_in_group(message)
             return
 
         if text_content == "🧹 Clear Chat":
