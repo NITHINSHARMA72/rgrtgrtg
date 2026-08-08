@@ -1658,18 +1658,8 @@ def background_cleanup_daemon():
 # ERROR HANDLER
 # ============================================================
 
-@bot.middleware_handler(update_types=["message"])
-def log_incoming_update(bot_instance, message):
-    try:
-        if message.from_user:
-            logger.info(
-                "Update from user=%s chat=%s type=%s",
-                message.from_user.id,
-                message.chat.id,
-                message.content_type,
-            )
-    except Exception:
-        pass
+# Middleware intentionally disabled for compatibility with pyTelegramBotAPI.
+# Incoming updates are already logged inside the message handlers.
 
 
 # ============================================================
