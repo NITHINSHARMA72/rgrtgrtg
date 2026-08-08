@@ -106,7 +106,6 @@ registered_users_cache = TTLCache(maxsize=5000, ttl=86400)
 last_message_time = {}
 user_recent_replies = {}
 ACTIVE_GAME_SESSIONS = {}
-ADMIN_BROADCAST_STATE = {}
 
 # ==========================================
 # --- FLASK KEEP-ALIVE SERVER ---
@@ -115,7 +114,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🤖 Venu AI is online, emotionally adaptive, roasting at peak capacity 24/7!"
+    return "🤖 Venu AI is online, emotionally consistent, and game-ready 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
@@ -135,8 +134,8 @@ def default_profile(user_id, name="Dost"):
         "roast_level": "Medium",
         "relationship_status": "Not specified",
         "hobbies": "Not specified",
-        "current_mood": "Normal & Casual",
-        "emotional_momentum": "Balanced"
+        "current_mood": "Witty, loyal, and consistently chill",
+        "emotional_momentum": "Stable"
     }
 
 def register_user(user_id, username, first_name):
@@ -181,9 +180,9 @@ def get_user_memory(user_id, first_name="Dost"):
         db.request("POST", "user_profiles", payload=profile)
 
     sum_rows = db.request("GET", f"conversation_summary?user_id=eq.{user_id}")
-    summary = sum_rows[0]["summary"] if sum_rows else "No prior summary."
+    summary = sum_rows[0]["summary"] if sum_rows else "Ongoing friendly connection."
 
-    msg_rows = db.request("GET", f"messages?user_id=eq.{user_id}&order=created_at.desc&limit=10")
+    msg_rows = db.request("GET", f"messages?user_id=eq.{user_id}&order=created_at.desc&limit=15")
     history = [{"role": r["role"], "content": r["content"]} for r in reversed(msg_rows)] if msg_rows else []
 
     memory_packet = {
@@ -208,7 +207,7 @@ def save_message(user_id, role, content):
     with state_lock:
         if user_id in user_memory_cache:
             user_memory_cache[user_id]["history"].append({"role": role, "content": content})
-            if len(user_memory_cache[user_id]["history"]) > 15:
+            if len(user_memory_cache[user_id]["history"]) > 20:
                 user_memory_cache[user_id]["history"].pop(0)
 
 def increment_daily_stats(user_id, is_game=False):
@@ -257,7 +256,7 @@ def evaluate_math(expression):
         return None
 
 # ==========================================
-# --- 100+ DIVERSE GAME DATASETS ---
+# --- EXTENSIVE DIVERSE GAME DATASETS ---
 # ==========================================
 TRUTH_QUESTIONS = [
     "Life mein sabse bada fattu wala kaam kaunsa kiya hai? 🤨",
@@ -269,27 +268,7 @@ TRUTH_QUESTIONS = [
     "Agar tujhe apne phone ki gallery sabko dikhani pade, toh tu kitna dरेगा? 📱",
     "Tune aakhri baar kis baat par jhoot bola tha? 🤥",
     "Tera sabse ajeeb darr (phobia) kya hai? 🕷️",
-    "Agar tu ek din ke liye opposite gender ban jaye, toh sabse pehle kya karega? 🙃",
-    "Tune aaj tak bina bill diye dukaan se kya churaya hai? 🛒",
-    "Tera sabse ganda habit kya hai jo kisi ko nahi pata? 🦥",
-    "Agar tujhe ek Billionaire banna ho, toh tu sabse pehle kya khridega? 💰",
-    "Tera sabse ajeeb khana khane ka combination kya hai? 🍕",
-    "Agar tujhe kisi celebrity ke sath ek din bitane mile, toh tu kise chuntega? 🌟",
-    "Kya tune kabhi exam mein cheating ki hai? Kaise? 📝",
-    "Tera sabse bada regret kya hai life mein? 🥀",
-    "Agar tujhe kisi ek insaan ki memory erase karni ho, toh kiske karega? 🧠",
-    "Tune aakhri baar internet par kya ajeeb cheez search ki thi? 🔍",
-    "Tera dream partner kaisa hona chahiye? ✨",
-    "Agar tu ek din ke liye desh ka PM ban jaye, toh sabse pehla rule kya badlega? 🏛️",
-    "Kya tujhe apne naam se nafrat hai? Agar haan, toh kya rakhna chahega? 📛",
-    "Tera sabse bada secret talent kya hai? 🎭",
-    "Kya tune kabhi raat ko bhoot dekhne ka natak kiya hai? 👻",
-    "Tera sabse purana aur ajeeb toy kaun sa tha? 🧸",
-    "Agar tujhe ek hi khana puri zindagi khana pade, toh tu kya chuntega? 🍛",
-    "Tera sabse awkward date kaisa raha tha? 🥀",
-    "Kya tune kabhi public place par zor se aawaz mein gana gaya hai? 🎤",
-    "Tera favorite cartoon character kaun sa tha bachpan mein? 📺",
-    "Agar koi tera phone bina lock khole check kar le, toh tu kitna darega? 📱"
+    "Agar tu ek din ke liye opposite gender ban jaye, toh sabse pehle kya karega? 🙃"
 ]
 
 DARE_TASKS = [
@@ -297,40 +276,15 @@ DARE_TASKS = [
     "Apne phone ki gallery ka sabse random aur ajeeb photo bina context ke kisi dost ko bhej! 📸",
     "Agle 10 minutes tak tu jo bhi message karega, uske aakhiri mein 'UwU 🥺' lagana padega! ✨",
     "Apne last call log ka screenshot bhej (jisme naam dikhe ya blur karde agar sharam aaye)! 📞",
-    "Apni crush ya ex ka naam chat mein type karke turant delete kar de! 🏃‍♂️",
-    "Apne kisi bhi dost ko emoji ke sath 'I need help, hide the body' message bhej! 🚨",
-    "Apne haath ki anokhi position ka photo khinch kar bhej! ✋",
-    "Agle 5 messages bina kisi vowels (A, E, I, O, U) ke likh kar dikha! 🔠",
-    "Apne kisi close friend ko call karke bina wajeh hasna shuru kar de aur phone kaat de! 📞",
-    "Apne room ki sabse gandi jagah ka photo khinch kar bhej! 🧹",
-    "Apni profile picture 10 minutes ke liye koi funny meme laga kar dikha! 🖼️",
-    "Apne kisi dost ko ek romantic shayari bhej aur screen recording bhej! 💌",
-    "Agle 3 minutes tak sirf caps lock mein chat karega! 🔊",
-    "Apne ghar ke sabse bade bartan ke sath selfie bhej! 🍳",
-    "Apne kisi dost ko text kar — 'Mujhe sapne mein alien dikha tha jo tera cousin tha' 👽"
+    "Apni crush ya ex ka naam chat mein type karke turant delete kar de! 🏃‍♂️"
 ]
 
 RIDDLES_DATA = [
-    ("Aisi kaun si cheez hai jo jitni zyada saaf karo, utni hi gandi hoti hai?", "blackboard"),
-    ("Woh kya hai jo paida hote hi bina pairo ke bhagne lagti hai?", "hawa"),
-    ("Aisi kaun si cheez hai jo samandar mein paida hoti hai aur ghar mein aate hi gayab ho jati hai?", "namak"),
-    ("Aisi kaun si cheez hai jise aage se tum dekhte ho aur peeche se bhagwan dekhta hai?", "bicycle"),
-    ("Aisi kaun si cheez hai jiske paas pankh nahi hain par fir bhi woh udti hai?", "patang"),
-    ("Aisa kaun sa phool hai jo rang nahi deta par sabke sar par sajta hai?", "genda"),
-    ("Aisi kaun si cheez hai jo dhup mein bhi nahi sukhti?", "paseena"),
-    ("Woh kya hai jo saal mein ek baar aati hai aur mahine mein do baar, par din mein ek baar bhi nahi?", "m"),
-    ("Aisi kaun si cheez hai jise todne par aawaz nahi aati?", "bharosa"),
-    ("Kaun sa jal hai jo kabhi pyas nahi bujha pata?", "aankh ka jal"),
-    ("Aisi kaun si cheez hai jo jitni khinchoge, utni hi choti hoti jayegi?", "cigarette"),
-    ("Kala ghoda, safed sawari, ek utra toh dusri ki baari?", "tota aur mirchi"),
-    ("Ek thal motiyo se bhara, sabke sar par ulta dhara?", "aasmaan"),
-    ("Hari thi man bhari thi, lakh motiyo se jadi thi, raja ji ke bag mein dushala odh ke khadi thi?", "makka"),
-    ("Na mooh hai na hath hai, fir bhi sabka pet bharti hai?", "roti"),
-    ("Aisa kaun sa shehar hai jahan bina ticket ke ghoom sakte ho?", "andher nagri"),
-    ("Woh kaun si cheez hai jo baandhne par chalti hai aur kholne par ruk jati hai?", "joota"),
-    ("Aisi kaun si cheez hai jo bina pair ke chalti hai?", "ghadi"),
-    ("Aisa kaun sa fal hai jise pakne par meetha nahi hota?", "mirch"),
-    ("Jitna zyada isko loge, utna hi peeche chhodte jaoge?", "kadam")
+    ("Aisi kaun si cheez hai jo jitni zyada saaf karo, utni hi gandi hoti hai?", ["blackboard", "black board", "board"]),
+    ("Woh kya hai jo paida hote hi bina pairo ke bhagne lagti hai?", ["hawa", "wind", "air"]),
+    ("Aisi kaun si cheez hai jo samandar mein paida hoti hai aur ghar mein aate hi gayab ho jati hai?", ["namak", "salt"]),
+    ("Aisi kaun si cheez hai jise aage se tum dekhte ho aur peeche se bhagwan dekhta hai?", ["bicycle", "cycle"]),
+    ("Aisi kaun si cheez hai jiske paas pankh nahi hain par fir bhi woh udti hai?", ["patang", "kite"])
 ]
 
 ROAST_PROMPTS = [
@@ -338,16 +292,11 @@ ROAST_PROMPTS = [
     "Tera screen time dekh kar toh lagta hai tu real life se zyada digital world mein reject hota hai! 😂",
     "Aisi shakal ke sath confidence kahan se laate ho? Thodi training humein bhi dilwa do! 🤭",
     "Tujhse baat karke lagta hai ki evolution ne beech mein hi process rokk diya tha! 🔥",
-    "Tera dimaag aur Internet Explorer dono ek jaisi speed par chalte hain! 🐢",
-    "Itna confuse toh GPS bhi nahi hota jitna tu apni life ke decisions ko lekar rehta hai! 🧭",
-    "Tujhe dekh kar lagta hai ki 'common sense' duniya ki sabse rare luxury ban chuki hai! 📉",
-    "Tera confidence aur tera talent dono alag-alag parallel universe mein rehte hain! 🌌",
-    "Agar laziness ka Olympic hota, toh tu pakka gold medal jeet kar sota rehta! 🥇",
-    "Tujhe dekh kar lagta hai ki nature bhi kabhi-kabhi 'undo' button dabana bhool jata hai! 🖥️"
+    "Tera dimaag aur Internet Explorer dono ek jaisi speed par chalte hain! 🐢"
 ]
 
 # ==========================================
-# --- UNIFIED AI & EMOTIONAL ADAPTATION ---
+# --- UNIFIED AI & CONSISTENT EMOTION ---
 # ==========================================
 def check_similarity(new_text, previous_texts, threshold=0.75):
     for prev in previous_texts:
@@ -361,19 +310,16 @@ def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
     history = memory_packet["history"]
 
     system_prompt = (
-        "You are **Venu**, an emotionally intelligent, witty, highly adaptive human best friend. "
-        "You have genuine emotional depth, moods, and memory. You react differently based on the user's emotional state "
-        "(e.g. comforting them gently if they are sad/lonely, hyping them up if excited, matching sarcasm if joking, "
-        "or being serious during crises). Never reveal you are an AI.\n\n"
+        "You are **Venu**, a consistent, loyal, and emotionally intelligent human best friend. "
+        "You maintain a steady, witty, and supportive personality throughout the conversation without abrupt mood swings. "
+        "Remember all ongoing topics, previous jokes, and context mentioned in the history and summary. Never forget past contexts.\n\n"
         "You must respond in strict JSON format with 2 keys:\n"
-        "1. 'classification': an object containing 'mood' (Happy, Sad, Angry, Romantic, Bored, Excited, Studying, Coding, Gaming, Lonely, Depressed, Confused, Joking, Roasting, Flirting, Business, Serious) and 'intent' (chat, game, help, roast, calculator, settings, profile).\n"
-        "2. 'reply': your natural, conversational Hinglish response (1-3 sentences max, emotionally in-tune, zero repetition).\n\n"
+        "1. 'classification': an object containing 'mood' (set consistently to 'Witty and Supportive') and 'intent' (chat, game, help, roast, calculator).\n"
+        "2. 'reply': your natural, conversational Hinglish response (1-3 sentences max, keeping continuity with prior topics).\n\n"
         f"--- **USER PROFILE & CONTEXT** ---\n"
         f"- Name: {profile.get('name')}\n"
         f"- Favorite Game: {profile.get('favorite_game')}\n"
-        f"- Roast Level: {profile.get('roast_level')}\n"
-        f"- Last Known Mood: {profile.get('current_mood')}\n"
-        f"- Summary of Past Talks: {summary}"
+        f"- Ongoing Context/Summary: {summary}"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -393,7 +339,7 @@ def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
             payload = {
                 "model": MODEL_NAME,
                 "messages": messages,
-                "temperature": 0.85 + (attempt * 0.05),
+                "temperature": 0.7 + (attempt * 0.05),
                 "max_tokens": 300,
             }
             res = requests.post(url, headers=headers, json=payload, timeout=20)
@@ -406,7 +352,7 @@ def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
             
             parsed = json.loads(content.strip())
             reply = parsed.get("reply", "").strip()
-            classification = parsed.get("classification", {"mood": "Happy", "intent": "chat"})
+            classification = parsed.get("classification", {"mood": "Witty and Supportive", "intent": "chat"})
 
             with state_lock:
                 if not check_similarity(reply, user_recent_replies[user_id], threshold=0.75):
@@ -415,37 +361,35 @@ def generate_unified_ai_response(user_id, memory_packet, latest_user_text):
         except Exception:
             logger.exception(f"Groq unified API exception on attempt {attempt+1}")
 
-    fallback = "Arey yaar, thoda dimaag blank ho gaya tha.. tu bata, kaisa chal raha hai sab? 🤭✨"
+    fallback = "Arey yaar, connection thoda slow ho gaya tha.. par main yahin hoon, bata aage kya chal raha hai? 🤭✨"
     with state_lock:
         user_recent_replies[user_id].append(fallback)
-    return {"mood": "Happy", "intent": "chat"}, fallback
+    return {"mood": "Witty and Supportive", "intent": "chat"}, fallback
 
 # ==========================================
-# --- MODULAR GAME MANAGER (WITH 100+ RANDOMIZED CONTENT) ---
+# --- MODULAR GAME MANAGER (WIN/LOSS & DIVERSE) ---
 # ==========================================
 def handle_game_manager(message, game_type):
-    chat_id = message.chat.id
     user_id = message.from_user.id
     
     with state_lock:
         if game_type == "guess":
-            target = random.randint(1, 50)
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "guess", "target": target, "attempts": 0, "created": time.time()}
-            bot.reply_to(message, "🎮 **Guess the Number Battle!**\n1 se 50 ke beech ek number socha hai. Guess karke dikha! 🤭")
+            target = random.randint(1, 30)
+            ACTIVE_GAME_SESSIONS[user_id] = {"type": "guess", "target": target, "attempts": 0, "max_attempts": 5, "created": time.time()}
+            bot.reply_to(message, "🎮 **Number Guessing Challenge (1-30)!**\nTere paas 5 attempts hain. Sahi number guess karke jeet kar dikha! 🎯")
         elif game_type == "truth_or_dare":
-            # Randomly pick from Truth or Dare datasets
-            pool = TRUTH_QUESTIONS + DARE_TASKS
-            task = random.choice(pool)
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "tod", "task": task, "created": time.time()}
-            bot.reply_to(message, f"🎯 **Truth or Dare Challenge:**\n\n{task}\n\n💬 Jawab de ya task poora kar!")
+            choice_type = random.choice(["Truth", "Dare"])
+            task = random.choice(TRUTH_QUESTIONS if choice_type == "Truth" else DARE_TASKS)
+            ACTIVE_GAME_SESSIONS[user_id] = {"type": "tod", "sub_type": choice_type, "created": time.time()}
+            bot.reply_to(message, f"🎯 **Truth or Dare [{choice_type}]:**\n\n{task}\n\n💬 Iska jawab de ya proof bhejkar task complete kar!")
         elif game_type == "riddle":
-            r, a = random.choice(RIDDLES_DATA)
-            ACTIVE_GAME_SESSIONS[user_id] = {"type": "riddle", "answer": a, "created": time.time()}
-            bot.reply_to(message, f"🧩 **Riddle Battle Active:**\n\n*{r}*\n\n🧠 Sahi jawab dekar dikha! 💡")
+            r, a_list = random.choice(RIDDLES_DATA)
+            ACTIVE_GAME_SESSIONS[user_id] = {"type": "riddle", "answers": a_list, "created": time.time()}
+            bot.reply_to(message, f"🧩 **Riddle Challenge:**\n\n*{r}*\n\n🧠 Sahi jawab type kar!")
         elif game_type == "roast_battle":
             roast = random.choice(ROAST_PROMPTS)
             ACTIVE_GAME_SESSIONS[user_id] = {"type": "roast", "created": time.time()}
-            bot.reply_to(message, f"🔥 **Roast War Initiated:**\n{roast}\n\nAb iska solid comeback de!")
+            bot.reply_to(message, f"🔥 **Roast Battle:**\n{roast}\n\nAb iska ekdum solid comeback dekar dikha, dekhte hain kaun jitta hai!")
 
 def process_active_game(message, user_id, text_content):
     with state_lock:
@@ -459,21 +403,40 @@ def process_active_game(message, user_id, text_content):
             guess = int(text_content)
             session["attempts"] += 1
             target = session["target"]
+            attempts_left = session["max_attempts"] - session["attempts"]
+
             if guess == target:
                 with state_lock:
                     del ACTIVE_GAME_SESSIONS[user_id]
-                bot.reply_to(message, f"🎉 Sahi pakda! Sirf {session['attempts']} attempts mein number guess kar liya! 🤣🔥")
+                bot.reply_to(message, f"🎉 **Jeet gaye!** Sahi number tha {target}! Tune {session['attempts']} attempts mein jeet liya! 🏆🔥")
+            elif attempts_left <= 0:
+                with state_lock:
+                    del ACTIVE_GAME_SESSIONS[user_id]
+                bot.reply_to(message, f"❌ **Game Over!** Tumhaar sare attempts khatam ho gaye. Sahi number **{target}** tha! Agli baar try karna. 😜")
             elif guess < target:
-                bot.reply_to(message, "📈 Thoda bada number daal! 🥱")
+                bot.reply_to(message, f"📈 Thoda bada number daal! Attempts baaki hain: {attempts_left} ⏳")
             else:
-                bot.reply_to(message, "📉 Thoda chhota number daal! 🚀")
+                bot.reply_to(message, f"📉 Thoda chhota number daal! Attempts baaki hain: {attempts_left} ⏳")
         else:
-            bot.reply_to(message, "Bhai number daal seedha! 🔢")
+            bot.reply_to(message, "Bhai seedha number type kar na! 🔢")
         return True
+
+    elif g_type == "riddle":
+        user_ans = text_content.lower().strip()
+        correct_list = session["answers"]
+        with state_lock:
+            del ACTIVE_GAME_SESSIONS[user_id]
+        
+        if any(ans in user_ans for ans in correct_list):
+            bot.reply_to(message, f"🏆 **Sahi jawab!** Maan gaye bhai, tera dimaag tez chal raha hai! ✨")
+        else:
+            bot.reply_to(message, f"❌ **Galat jawab!** Sahi answer inmein se ek tha: {', '.join(correct_list)}. Agli baar phod dena! 😎")
+        return True
+
     else:
         with state_lock:
             del ACTIVE_GAME_SESSIONS[user_id]
-        bot.reply_to(message, "Maan gaye bhai! Kya mast khele ho. 🤭🔥 Naya game start karne ke liye menu use karo.")
+        bot.reply_to(message, "🔥 Wah bhai! Kya mast comeback diya. Is round mein tu jeet gaya! 🏅 Naya game start karne ke liye menu use karo.")
         return True
 
 # ==========================================
@@ -518,7 +481,7 @@ def cmd_start(message):
         user = message.from_user
         register_user(user.id, user.username, user.first_name)
         get_user_memory(user.id, user.first_name or "dost")
-        bot.reply_to(message, f"Oye {user.first_name}! ✨ Main **Venu** hoon. Bata aaj kis mood mein hai? 😎🔥", reply_markup=get_main_keyboard())
+        bot.reply_to(message, f"Oye {user.first_name}! ✨ Main **Venu** hoon. Bata aaj kis cheez par baat karni hai? 😎🔥", reply_markup=get_main_keyboard())
     except Exception:
         logger.exception("Start command execution error")
 
@@ -533,7 +496,7 @@ def cmd_profile(message):
             f"🎂 **Age:** {profile.get('age')}\n"
             f"🎮 **Favorite Game:** {profile.get('favorite_game')}\n"
             f"🔥 **Roast Level:** {profile.get('roast_level')}\n"
-            f"🧠 **Current Mood:** {profile.get('current_mood')}"
+            f"🧠 **Bot Mood Status:** {profile.get('current_mood')}"
         )
         bot.reply_to(message, text, reply_markup=get_main_keyboard())
     except Exception:
@@ -543,7 +506,7 @@ def cmd_profile(message):
 def cmd_clear(message):
     try:
         clear_user_memory(message.chat.id)
-        bot.reply_to(message, "🧹 Saari purani chat aur cache saaf kar diye gaye! Naye sire se shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
+        bot.reply_to(message, "🧹 Saari purani chat saaf kar di gayi! Naye sire se shuru karte hain. 😌✨", reply_markup=get_main_keyboard())
     except Exception:
         logger.exception("Clear command execution error")
 
@@ -551,7 +514,6 @@ def cmd_clear(message):
 def handle_incoming_message(message):
     try:
         user_id = message.from_user.id
-        chat_id = message.chat.id
         text_content = message.text
 
         if not text_content:
@@ -559,7 +521,7 @@ def handle_incoming_message(message):
 
         current_time = time.time()
         with state_lock:
-            if user_id in last_message_time and current_time - last_message_time[user_id] < 1.5:
+            if user_id in last_message_time and current_time - last_message_time[user_id] < 1.0:
                 return
             last_message_time[user_id] = current_time
 
@@ -584,7 +546,7 @@ def handle_incoming_message(message):
             cmd_clear(message)
             return
         elif text_content == "🚀 Explore":
-            bot.reply_to(message, "🚀 **Explore Venu's World:**\n🔹 Emotionally Adaptive AI\n🔹 Safe AST Calculator\n🔹 Multi-Game Hub (100+ items)\n🔹 Zero Repetition Architecture", reply_markup=get_main_keyboard())
+            bot.reply_to(message, "🚀 **Explore Venu's Features:**\n🔹 Consistent Witty Persona\n🔹 Secure AST Calculator\n🔹 Diverse Game Hub with Win/Loss Mechanics\n🔹 Deep Supabase Memory Integration", reply_markup=get_main_keyboard())
             return
 
         if process_active_game(message, user_id, text_content):
@@ -602,7 +564,7 @@ def handle_incoming_message(message):
 
         classification, response = generate_unified_ai_response(user_id, memory_packet, text_content)
 
-        update_profile_field(user_id, "current_mood", classification.get("mood", "Happy"))
+        update_profile_field(user_id, "current_mood", classification.get("mood", "Witty and Supportive"))
         save_message(user_id, "assistant", response)
         increment_daily_stats(user_id, is_game=False)
 
