@@ -23,7 +23,7 @@ import telebot
 # --- CONFIGURATION (PRODUCTION GRADE) ---
 # ==========================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8894339879:AAG9YNCJEs8S1ztygtzZZLmN-4V1g5KBQOg")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://hhelxewgwuqcloofyeyw.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoZWx4ZXdnd3VxY2xvb2Z5ZXl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzIyNTUsImV4cCI6MjA5NTA0ODI1NX0.EL0wb1HKvT9lJLtMW7p-y0X3fwgC1LeFrts7ErHVD54")
